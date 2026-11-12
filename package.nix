@@ -88,6 +88,7 @@ stdenv.mkDerivation {
     python3
     protobuf
     protoc-gen-validate
+    antlr4
   ];
 
   buildInputs = [

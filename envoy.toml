@@ -3,6 +3,12 @@
 name = "envoy"
 root = "//source/exe:envoy-static"
 
+# Targets left out of the build.
+exclude = [
+  # Needs a Rust static library built with cargo, which is not wired up yet.
+  "//source/extensions/dynamic_modules/builtin_extensions:hickory_dns_static",
+]
+
 # Repositories created by module extensions that duplicate a module.
 [repo_aliases]
 com_google_googleapis = "googleapis"

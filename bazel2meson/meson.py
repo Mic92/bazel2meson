@@ -50,6 +50,8 @@ class Settings:
     system: dict[str, SystemRepo]
     # Repositories whose targets are dropped from the build.
     ignore: set[str] = field(default_factory=set)
+    # Individual targets that are dropped from the build.
+    exclude: set[str] = field(default_factory=set)
     project_name: str = "envoy"
     version: str = "0"
 
@@ -108,7 +110,7 @@ class Emitter:
             label = stack.pop()
             if label in self.targets or label in self.files:
                 continue
-            if label.repo in self.settings.ignore:
+            if label.repo in self.settings.ignore or str(label) in self.settings.exclude:
                 continue
             system = self.settings.system.get(label.repo)
             if system is not None:
@@ -190,26 +192,28 @@ class Emitter:
         tools = self.rs.labels(target, "tools")
         outs = self.rs.attr(target, "outs")
         cmd = self.rs.attr(target, "cmd", "")
-        out_dir = f"@BUILD_ROOT@/{self.directory(label)}"
+        out_dir = f"@BLD@/{self.directory(label)}"
 
         def location(match: re.Match[str]) -> str:
             item = self.ws.label(match.group(1), label.repo, label.pkg)
             path = self.path(item)
             if path is not None:
-                return f"@SOURCE_ROOT@/{path}"
+                return f"@SRC@/{path}"
             tool = self.ws.get(item)
             if tool is not None and tool.kind == "py_binary":
                 main = self.rs.attr(tool, "main") or self.rs.attr(tool, "srcs")[0]
                 main = main if isinstance(main, str) else main[0]
-                return f"python3 @SOURCE_ROOT@/{self.directory(item)}/{main.removeprefix(':')}"
+                # Bazel puts the repository root on the import path of py_binary.
+                root = self.settings.repo_dirs[item.repo]
+                return f"PYTHONPATH=@SRC@/{root} python3 @SRC@/{self.directory(item)}/{main.removeprefix(':')}"
             self.problems["genrule: cannot locate"].add(f"{label}: {match.group(1)}")
             return match.group(0)
 
         cmd = re.sub(r"\./\$\(location ([^)]+)\)", r"$(location \1)", cmd)
         cmd = re.sub(r"\$\((?:location|execpath|rootpath) ([^)]+)\)", location, cmd)
         src_paths = [p for p in (self.path(s) for s in srcs) if p]
-        cmd = cmd.replace("$<", f"@SOURCE_ROOT@/{src_paths[0]}" if src_paths else "")
-        cmd = cmd.replace("$(SRCS)", " ".join(f"@SOURCE_ROOT@/{p}" for p in src_paths))
+        cmd = cmd.replace("$<", f"@SRC@/{src_paths[0]}" if src_paths else "")
+        cmd = cmd.replace("$(SRCS)", " ".join(f"@SRC@/{p}" for p in src_paths))
         cmd = cmd.replace("$@", f"{out_dir}/{outs[0]}" if outs else "")
         cmd = cmd.replace("$(@D)", out_dir).replace("$(RULEDIR)", out_dir)
         if re.search(r"(?<!\$)\$\([A-Za-z]", cmd):
@@ -220,10 +224,70 @@ class Emitter:
         self.subdirs[self.directory(label)].append(
             f"{var} = custom_target(\n"
             f"  output: {array(list(outs), '    ')},\n"
-            f"  command: ['sh', '-c', {quote('cd @SOURCE_ROOT@ && ' + cmd.strip())}],\n"
+            # Meson's own @SOURCE_ROOT@ is relative to the build directory,
+            # which stops being valid after the cd Bazel's cmd expects.
+            f"  command: ['sh', '-c', {quote('cd @SRC@ && ' + cmd.strip())}\n"
+            f"    .replace('@SRC@', meson.project_source_root())\n"
+            f"    .replace('@BLD@', meson.project_build_root())],\n"
             f"  depend_files: files({array(['/'.join(['..'] * len(PurePosixPath(self.directory(label)).parts)) + '/' + p for p in inputs], '    ')}),\n"
             f")\n"
-            f"generated_sources += {var}\n"
+            f"generated_headers += {var}\n"
+        )
+
+    # -- rules with no generic translation ------------------------------------
+
+    def emit_antlr_library(self, label: Label, target: Target) -> None:
+        """ANTLR C++ parser; cel-cpp includes the result as <package dir>/<Grammar>Parser.h."""
+        (src,) = self.rs.labels(target, "src")
+        grammar = PurePosixPath(src.name).stem
+        outputs = [
+            f"{grammar}{part}.{ext}" for part in ("Lexer", "Parser", "BaseVisitor", "Visitor") for ext in ("h", "cpp")
+        ]
+        var = "gen_" + ident(f"{self.directory(label)}/{label.name}")
+        self.subdirs[self.directory(label)].append(
+            f"{var} = custom_target(\n"
+            f"  input: {quote(src.name)},\n"
+            f"  output: {array(outputs, '    ')},\n"
+            f"  command: [find_program('antlr4', 'antlr'), '-Dlanguage=Cpp', '-no-listener', '-visitor',\n"
+            f"    '-Xexact-output-dir', '-o', '@OUTDIR@', '-package', {quote(self.rs.attr(target, 'package', ''))}, '@INPUT@'],\n"
+            f")\n"
+            f"generated_headers += [{', '.join(f'{var}[{i}]' for i in range(0, len(outputs), 2))}]\n"
+        )
+        self.generated_sources[label.repo] += [f"{var}[{i}]" for i in range(1, len(outputs), 2)]
+
+    def emit_cel_cc_embed(self, label: Label, target: Target) -> None:
+        """A serialized FileDescriptorSet as a C array initializer, in <name>.inc."""
+        (src,) = self.rs.labels(target, "src")
+        descriptor_set = self.ws.get(src)
+        protos: list[str] = []
+        for dep in self.rs.labels(descriptor_set, "deps") if descriptor_set else []:
+            if dep.repo == "protobuf":
+                # Well-known types ship with protoc: //:any_proto is google/protobuf/any.proto.
+                protos.append(f"google/protobuf/{dep.name.removesuffix('_proto')}.proto")
+                continue
+            proto = self.ws.get(dep)
+            for item in self.rs.labels(proto, "srcs") if proto else []:
+                path = self.path(item)
+                if path is not None:
+                    protos.append(f"@SRC@/{path}")
+        if not protos:
+            self.problems["cel_cc_embed without protos"].add(str(label))
+        out = f"@BLD@/{self.directory(label)}/{label.name}"
+        script = (
+            f"protoc $0 --include_imports --descriptor_set_out={out}.binarypb {' '.join(protos)} && "
+            'python3 -c \'import sys; data = open(sys.argv[1], "rb").read(); '
+            'open(sys.argv[2], "w").write(", ".join("0x%02x" % b for b in data) + "\\n")\' '
+            f"{out}.binarypb {out}.inc"
+        )
+        var = "gen_" + ident(f"{self.directory(label)}/{label.name}")
+        self.subdirs[self.directory(label)].append(
+            f"{var} = custom_target(\n"
+            f"  output: {quote(label.name + '.inc')},\n"
+            f"  command: ['sh', '-c', {quote(script)}\n"
+            f"    .replace('@SRC@', meson.project_source_root())\n"
+            f"    .replace('@BLD@', meson.project_build_root()), ' '.join(proto_args)],\n"
+            f")\n"
+            f"generated_headers += {var}\n"
         )
 
     # -- C/C++ --------------------------------------------------------------
@@ -231,6 +295,13 @@ class Emitter:
     def emit(self) -> dict[str, str]:
         self.collect()
         self.emit_protos()
+        # Meson expressions for generated .cc files, by owning repository.
+        self.generated_sources: dict[str, list[str]] = defaultdict(list)
+        handlers = {
+            "genrule": self.emit_genrule,
+            "antlr_library": self.emit_antlr_library,
+            "cel_cc_embed": self.emit_cel_cc_embed,
+        }
 
         sources: dict[str, list[str]] = defaultdict(list)
         copts: dict[str, list[str]] = defaultdict(list)
@@ -244,8 +315,8 @@ class Emitter:
                     dest.append(item)
 
         for label, target in sorted(self.targets.items()):
-            if target.kind == "genrule":
-                self.emit_genrule(label, target)
+            if target.kind in handlers:
+                handlers[target.kind](label, target)
                 continue
             if target.kind not in CC_KINDS:
                 if target.kind not in PROTO_CC_KINDS | {
@@ -254,7 +325,9 @@ class Emitter:
                     "label_flag",
                     "filegroup",
                     "py_binary",
+                    "py_library",
                     "bool_flag",
+                    "cel_proto_transitive_descriptor_set",
                 }:
                     self.problems[f"unhandled rule kind {target.kind}"].add(str(label))
                 continue
@@ -300,7 +373,7 @@ class Emitter:
             "proto_inputs = []",
             "proto_sources = []",
             "proto_headers = []",
-            "generated_sources = []",
+            "generated_headers = []",
             "",
             f"system_deps = {array(sorted(self.system_deps))}",
             "deps = [dependency('threads')]",
@@ -327,7 +400,7 @@ class Emitter:
             "",
             "libs = []",
         ]
-        for repo in sorted(sources):
+        for repo in sorted(set(sources) | set(self.generated_sources)):
             if repo == self.settings.root.repo:
                 continue
             name = ident(repo)
@@ -335,6 +408,7 @@ class Emitter:
             root += [
                 f"libs += static_library({quote(name)},",
                 f"  files({array(sorted(set(sources[repo])), '    ')}),",
+                f"  [{', '.join(self.generated_sources[repo])}], generated_headers,",
                 f"  cpp_args: {array(args, '    ')},",
                 f"  c_args: {array(args, '    ')},",
                 "  include_directories: inc, dependencies: deps + [proto_dep])",
@@ -345,7 +419,7 @@ class Emitter:
         root += [
             f"executable({quote(self.settings.project_name)},",
             f"  files({array(sorted(set(sources[main])), '    ')}),",
-            "  generated_sources,",
+            f"  [{', '.join(self.generated_sources[main])}], generated_headers,",
             f"  cpp_args: {array(args, '    ')},",
             f"  c_args: {array(args, '    ')},",
             f"  link_args: {array([o for o in linkopts if not o.startswith('-fuse-ld')], '    ')},",

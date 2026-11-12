@@ -71,6 +71,7 @@ def main() -> int:
         repo_dirs=repo_dirs,
         system={name: SystemRepo(**spec) for name, spec in raw.get("system", {}).items()},
         ignore=set(raw.get("ignore", [])),
+        exclude={str(ws.label(item, "", "")) for item in raw.get("exclude", [])},
         project_name=raw.get("name", "envoy"),
         version=args.version,
     )
