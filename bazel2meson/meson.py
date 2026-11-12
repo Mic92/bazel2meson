@@ -169,14 +169,17 @@ class Emitter:
                     f"{var} = custom_target(\n"
                     f"  input: {quote(PurePosixPath(path).name)},\n"
                     f"  output: {array(outputs, '    ')},\n"
-                    f"  command: [protoc, {', '.join(args)}, '@INPUT@'],\n"
+                    # protoc wants the input spelled the way the -I roots are: absolute.
+                    f"  command: [protoc, {', '.join(args)}, meson.current_source_dir() / {quote(PurePosixPath(path).name)}],\n"
                     f"  depend_files: proto_inputs,\n"
                     f")\n"
                     f"proto_sources += {var}\n"
                     f"proto_headers += [{', '.join(f'{var}[{i}]' for i in range(1, len(outputs), 2))}]\n"
                 )
                 count += 1
-        self.proto_roots = sorted(roots)
+        # protoc names a file after the first root containing it, so nested
+        # roots have to come before the directories they live in.
+        self.proto_roots = sorted(roots, key=lambda r: (-len(PurePosixPath(r).parts), r))
         self.proto_count = count
         return self.proto_roots
 
@@ -232,7 +235,7 @@ class Emitter:
         sources: dict[str, list[str]] = defaultdict(list)
         copts: dict[str, list[str]] = defaultdict(list)
         defines: list[str] = []
-        include_dirs: set[str] = {"."}
+        include_dirs: set[str] = {".", *self.proto_roots}
         linkopts: list[str] = []
 
         def add_unique(dest: list[str], items: list[str]) -> None:
