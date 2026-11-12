@@ -1,0 +1,529 @@
+{
+  "cel-cpp": {
+    "hash": "sha256-aFcoLGgYTkLCLNtsqzMEOuU9+4e6mRJ97V9ZQxZm8z0=",
+    "moduleFile": {
+      "sha256": "f835ee95427829db17d60fe1349839a759478fe89bb03c3869f39b5d6e56491d",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/cel-cpp/0.16.1.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-7CJ5xFAqREftYibxgMnY6KFKdMcE4WfRVn9V7XimK+M=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/cel-cpp/0.16.1.envoy/patches/cel-cpp.patch"
+      }
+    ],
+    "stripPrefix": "cel-cpp-0.16.1",
+    "url": "https://github.com/cel-expr/cel-cpp/archive/refs/tags/v0.16.1.tar.gz",
+    "version": "0.16.1.envoy"
+  },
+  "cel-spec": {
+    "hash": "sha256-E1g8WjEoYWSESYRbcJciZ2o8m0M5a2uOnL5FOP63StI=",
+    "moduleFile": {
+      "sha256": "72d9f7a9cdf072c659a1afa145d217b42f51fb40ab2dfa348f8e3e6686a3931a",
+      "url": "https://bcr.bazel.build/modules/cel-spec/0.25.1/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 0,
+    "patches": [
+      {
+        "hash": "sha256-6/KX6uCZYufXI/BINlGN3qKtvQbhQPedsBTaaOevNOw=",
+        "url": "https://bcr.bazel.build/modules/cel-spec/0.25.1/patches/module_dot_bazel.patch"
+      }
+    ],
+    "stripPrefix": "cel-spec-0.25.1",
+    "url": "https://github.com/google/cel-spec/archive/refs/tags/v0.25.1.tar.gz",
+    "version": "0.25.1"
+  },
+  "cpp2sky": {
+    "hash": "sha256-1+UvUX3lodx9kn3WOi5apc+MLc/Y/Pa2TheZeNrxw+0=",
+    "moduleFile": {
+      "sha256": "4634ce1499a7cd15ba625196eda5ed058cccc37be62c7ea3bf11b978ac49201b",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/cpp2sky/0.6.0.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-zwkUxUfizFZokfbNnoL0AzbRTN9P+Fb3LO3Y26L5M4A=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/cpp2sky/0.6.0.envoy/patches/cpp2sky.patch"
+      }
+    ],
+    "stripPrefix": "cpp2sky-0.6.0",
+    "url": "https://github.com/SkyAPM/cpp2sky/archive/v0.6.0.tar.gz",
+    "version": "0.6.0.envoy"
+  },
+  "dd-trace-cpp": {
+    "hash": "sha256-Po0qEsQ0t2asksH87Af0m5K4oSkC+X5sVIOaZavkRkk=",
+    "moduleFile": {
+      "sha256": "53d840ca189cd07b628465d4e7461c0b16458a108c9b1a5088248a16e4cf7074",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/dd-trace-cpp/2.1.1.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "dd-trace-cpp-2.1.1",
+    "url": "https://github.com/DataDog/dd-trace-cpp/archive/v2.1.1.tar.gz",
+    "version": "2.1.1.envoy"
+  },
+  "googleapis": {
+    "hash": "sha256-B6b3AM7lynlvUjCHbthFS/HYzECbOz5jRQW8TzKp9ys=",
+    "moduleFile": {
+      "sha256": "cc9e5ed294ed9ebf42cdbbdddd2df29048519e3797004df1e3f369f31ff4f2d4",
+      "url": "https://bcr.bazel.build/modules/googleapis/0.0.0-20251003-2193a2bf/MODULE.bazel"
+    },
+    "overlay": [
+      {
+        "hash": "sha256-zJ5e0pTtnr9Czbvd3S3ykEhRnjeXAE3x4/Np8x/08tQ=",
+        "path": "MODULE.bazel",
+        "url": "https://bcr.bazel.build/modules/googleapis/0.0.0-20251003-2193a2bf/overlay/MODULE.bazel"
+      },
+      {
+        "hash": "sha256-59FkoqrMX/a/7t3zkSLDmMkuGnajSeOoZI4FZFIwEuw=",
+        "path": "extensions.bzl",
+        "url": "https://bcr.bazel.build/modules/googleapis/0.0.0-20251003-2193a2bf/overlay/extensions.bzl"
+      },
+      {
+        "hash": "sha256-hFZT+gits3VtXcUkKuh3NCEC9FgBNGuNxaOVCuOiFPk=",
+        "path": "tests/bcr/.bazelrc",
+        "url": "https://bcr.bazel.build/modules/googleapis/0.0.0-20251003-2193a2bf/overlay/tests/bcr/.bazelrc"
+      },
+      {
+        "hash": "sha256-KZzDURLUNDOiMsurUHrnuWYogHPFs7W+Ar9ZrilPLuE=",
+        "path": "tests/bcr/BUILD.bazel",
+        "url": "https://bcr.bazel.build/modules/googleapis/0.0.0-20251003-2193a2bf/overlay/tests/bcr/BUILD.bazel"
+      },
+      {
+        "hash": "sha256-4zmBG1uAn7W3ExjUMQChBcrJVSNCE6K8PhIs9SfKy1U=",
+        "path": "tests/bcr/MODULE.bazel",
+        "url": "https://bcr.bazel.build/modules/googleapis/0.0.0-20251003-2193a2bf/overlay/tests/bcr/MODULE.bazel"
+      },
+      {
+        "hash": "sha256-AJLzf7NfQOLpWbNIR3TIU28tQMSjd3svlAgh4yCoXm8=",
+        "path": "tests/bcr/failure_test.bzl",
+        "url": "https://bcr.bazel.build/modules/googleapis/0.0.0-20251003-2193a2bf/overlay/tests/bcr/failure_test.bzl"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [
+      {
+        "hash": "sha256-0u7LsgwaVMjugknE4OKgNG7e/Sn8S7k7stTW6PE1/so=",
+        "url": "https://bcr.bazel.build/modules/googleapis/0.0.0-20251003-2193a2bf/patches/module_dot_bazel.patch"
+      },
+      {
+        "hash": "sha256-MmXB+YzXhG05hDbVgw5S/VZRgu4b2qjQl0OHVEEtP7Y=",
+        "url": "https://bcr.bazel.build/modules/googleapis/0.0.0-20251003-2193a2bf/patches/remove_upb_c_rules.patch"
+      }
+    ],
+    "stripPrefix": "googleapis-2193a2bfcecb92b92aad7a4d81baa428cafd7dfd",
+    "url": "https://github.com/googleapis/googleapis/archive/2193a2bfcecb92b92aad7a4d81baa428cafd7dfd.zip",
+    "version": "0.0.0-20251003-2193a2bf"
+  },
+  "googleurl": {
+    "hash": "sha256-T/pFqCdkZpLnsm4qjA3LwbF2Oibe8vu9gjYpcJYqL88=",
+    "moduleFile": {
+      "sha256": "dc049475e14a1c77a8e306cfaede9208f6df16dfb6b75c22990c19d9113fe6b9",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/googleurl/0.0.0-221103-dd4080f.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-rrikXftajTKaNKvEIplW5f4RIpvf0IEim3MUG/WsD9c=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/googleurl/0.0.0-221103-dd4080f.envoy/patches/googleurl.patch"
+      }
+    ],
+    "stripPrefix": "gurl-dd4080fec0b443296c0ed0036e1e776df8813aa7",
+    "url": "https://github.com/google/gurl/archive/dd4080fec0b443296c0ed0036e1e776df8813aa7.tar.gz",
+    "version": "0.0.0-221103-dd4080f.envoy"
+  },
+  "grpc-httpjson-transcoding": {
+    "hash": "sha256-RdwaYw9RjfIbTgROMrJ8ewKud+9AG0iiDl/94PBwET8=",
+    "moduleFile": {
+      "sha256": "a68a5f38f92a8665798fa3eb6bd9af9d1c87b7341332874261f5c4ee9eeec469",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/grpc-httpjson-transcoding/0.0.0-20250507-a6e226f.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-Q2uIePDJDjVjiJ3/fUN1YPamsezqOKVtXscHoiOY6So=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/grpc-httpjson-transcoding/0.0.0-20250507-a6e226f.envoy/patches/grpc-httpjson-transcoding.patch"
+      },
+      {
+        "hash": "sha256-/q6F+0k80j6V3HjWXeLawHaTDeDEPQRYQpsBqYssluo=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/grpc-httpjson-transcoding/0.0.0-20250507-a6e226f.envoy/patches/module_dot_bazel.patch"
+      },
+      {
+        "hash": "sha256-OPxzaPeRAaJJwidP9ZTTse7Pl4PZeQN0CUJLnPsBZXM=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/grpc-httpjson-transcoding/0.0.0-20250507-a6e226f.envoy/patches/absl-mutexlock.patch"
+      }
+    ],
+    "stripPrefix": "grpc-httpjson-transcoding-a6e226f9a2e656a973df3ad48f0ee5efacce1a28",
+    "url": "https://github.com/grpc-ecosystem/grpc-httpjson-transcoding/archive/a6e226f9a2e656a973df3ad48f0ee5efacce1a28.tar.gz",
+    "version": "0.0.0-20250507-a6e226f.envoy"
+  },
+  "hessian2-codec": {
+    "hash": "sha256-u0xK9qfjAxFgvzjfqVew7pUOLY3kfUuhTHpljDosdNE=",
+    "moduleFile": {
+      "sha256": "2444f17603d30883fcca2aa40c6379307e1ee28ca716da981d5acd2071fe3ff5",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/hessian2-codec/0.0.0-250114-6f5a647.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "hessian2-codec-6f5a64770f0374a761eece13c8863b80dc5adcd8",
+    "url": "https://github.com/alibaba/hessian2-codec/archive/6f5a64770f0374a761eece13c8863b80dc5adcd8.tar.gz",
+    "version": "0.0.0-250114-6f5a647.envoy"
+  },
+  "libcircllhist": {
+    "hash": "sha256-bfvWSf3jgPeiJW3vQ7nGN0xtb+doF4sJ457t+HSxOfQ=",
+    "moduleFile": {
+      "sha256": "093e50ec67a5615229453870c477310985f6feaf282d6a2dbb4ed7059be0085d",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libcircllhist/0.3.2.envoy/MODULE.bazel"
+    },
+    "overlay": [
+      {
+        "hash": "sha256-6+2LkE1pKJ4ZXJXy++MW4fEBkxqzGrmKJD3f/x7lZZc=",
+        "path": "BUILD.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libcircllhist/0.3.2.envoy/overlay/BUILD.bazel"
+      },
+      {
+        "hash": "sha256-CT5Q7GelYVIpRThwxHcxCYX2/q8oLWotu07XBZvgCF0=",
+        "path": "MODULE.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libcircllhist/0.3.2.envoy/overlay/MODULE.bazel"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "libcircllhist-py-0.3.2",
+    "url": "https://github.com/openhistogram/libcircllhist/archive/refs/tags/py-0.3.2.tar.gz",
+    "version": "0.3.2.envoy"
+  },
+  "ocp-diag-core": {
+    "hash": "sha256-uDuOp6k3zn9daHBCG+j5pTQ+jC3ivS4mlFKYHWfaFQk=",
+    "moduleFile": {
+      "sha256": "e946ff0e3eec7f94a76189c47f8aefb086b753ae012c7455eb6d5a7d7d52d340",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/ocp-diag-core/0.0.0-230505-e965ac0.envoy/MODULE.bazel"
+    },
+    "overlay": [
+      {
+        "hash": "sha256-pwBVkw/1kwB0j3WDH0lL+ar8wMNTejYi4yOrInrvfCQ=",
+        "path": "BUILD.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/ocp-diag-core/0.0.0-230505-e965ac0.envoy/overlay/BUILD.bazel"
+      },
+      {
+        "hash": "sha256-XpkeKcCkowcDHyC8+zeezu/Lkasaynbtb9BvlGIleYc=",
+        "path": "MODULE.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/ocp-diag-core/0.0.0-230505-e965ac0.envoy/overlay/MODULE.bazel"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "ocp-diag-core-e965ac0ac6db6686169678e2a6c77ede904fa82c/apis/c++",
+    "url": "https://github.com/opencomputeproject/ocp-diag-core/archive/e965ac0ac6db6686169678e2a6c77ede904fa82c.zip",
+    "version": "0.0.0-230505-e965ac0.envoy"
+  },
+  "opentelemetry-proto": {
+    "hash": "sha256-BXgSyrUBIsD9UEquV7C1hCSl7AXRsHiJgUvfx2mau+c=",
+    "moduleFile": {
+      "sha256": "0db9b378be8c5608058d31a4bad0b2194bbb349f7ac484fdfb5ad315c58b15aa",
+      "url": "https://bcr.bazel.build/modules/opentelemetry-proto/1.8.0/MODULE.bazel"
+    },
+    "overlay": [
+      {
+        "hash": "sha256-JWkNdSwQNm2rv75qOZAAozLBegE8GjvYtaCEHEY0DWI=",
+        "path": "BUILD.bazel",
+        "url": "https://bcr.bazel.build/modules/opentelemetry-proto/1.8.0/overlay/BUILD.bazel"
+      },
+      {
+        "hash": "sha256-DbmzeL6MVggFjTGkutCyGUu7NJ96xIT9+1rTFcWLFao=",
+        "path": "MODULE.bazel",
+        "url": "https://bcr.bazel.build/modules/opentelemetry-proto/1.8.0/overlay/MODULE.bazel"
+      }
+    ],
+    "patchStrip": 1,
+    "patches": [],
+    "stripPrefix": "opentelemetry-proto-1.8.0",
+    "url": "https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v1.8.0.tar.gz",
+    "version": "1.8.0"
+  },
+  "prometheus-metrics-model": {
+    "hash": "sha256-R8XqeUn2jn97NENQxZtr0x7rkh8O7Gw6Vm4nzxlRRww=",
+    "moduleFile": {
+      "sha256": "40e1b9b9db52c3238fcc3e85c08ef35eb9157783e620009ed01eeed7631a9f67",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/prometheus-metrics-model/0.6.2.envoy/MODULE.bazel"
+    },
+    "overlay": [
+      {
+        "hash": "sha256-5bxLOQeIV0vmU4mbxqPWQphT7jjmY1OC7m/a7QXVTHE=",
+        "path": "BUILD.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/prometheus-metrics-model/0.6.2.envoy/overlay/BUILD.bazel"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "client_model-0.6.2",
+    "url": "https://github.com/prometheus/client_model/archive/v0.6.2.tar.gz",
+    "version": "0.6.2.envoy"
+  },
+  "proto-converter": {
+    "hash": "sha256-jD/cehvorrD7X7pGcuVhgjD25ZJ3AE6P7PRIxxErAm8=",
+    "moduleFile": {
+      "sha256": "4eb07ebfdecce30b188524dcd5e217df5ac8dd0ca6a6b8daec625bcab84ff16b",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-converter/0.0.0-20260912-3850764.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-C7IoJ4JP088mc95RqKfyi85MkVxWmxNnVvMXkKnxhL8=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-converter/0.0.0-20260912-3850764.envoy/patches/proto-converter.patch"
+      },
+      {
+        "hash": "sha256-6LU7ZUBYGyEf8KO73YiB0S+u+9JW0rbAqxWrmo34jkg=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-converter/0.0.0-20260912-3850764.envoy/patches/module_dot_bazel.patch"
+      }
+    ],
+    "stripPrefix": "proto-converter-385076472517e4e006cfb7a2c5401b918c233d7d",
+    "url": "https://github.com/grpc-ecosystem/proto-converter/archive/385076472517e4e006cfb7a2c5401b918c233d7d.zip",
+    "version": "0.0.0-20260912-3850764.envoy"
+  },
+  "proto-field-extraction": {
+    "hash": "sha256-y6hk25CAZRWvpVOqovs2g98oWadTXlOjLLlhnanOvFk=",
+    "moduleFile": {
+      "sha256": "d99a43759299070160315edafc6808433e9ca6a0b427afcbdb7fa33d4e518185",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-field-extraction/0.0.0-240710-d5d39f0.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-CVmXKfLz2Ph9WJDDO46SrtUTt+ziuvrRLn4TYAtSKF4=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-field-extraction/0.0.0-240710-d5d39f0.envoy/patches/ocp.patch"
+      },
+      {
+        "hash": "sha256-4slE9hRwGZOHgMAPvfmJyF7VaXbV5WFtmXQjtLziJzY=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-field-extraction/0.0.0-240710-d5d39f0.envoy/patches/module_dot_bazel.patch"
+      },
+      {
+        "hash": "sha256-KWU4YwHpJV8mb/HaU02/0iAkJfvW5lmtJ7G9gUaAc9Q=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-field-extraction/0.0.0-240710-d5d39f0.envoy/patches/protobuf-v35.patch"
+      }
+    ],
+    "stripPrefix": "proto-field-extraction-d5d39f0373e9b6691c32c85929838b1006bcb3fb",
+    "url": "https://github.com/grpc-ecosystem/proto-field-extraction/archive/d5d39f0373e9b6691c32c85929838b1006bcb3fb.zip",
+    "version": "0.0.0-240710-d5d39f0.envoy"
+  },
+  "proto-processing": {
+    "hash": "sha256-useg0C/YUzzVzm0POdwyT8BWVwLYWp7jtlsL6OfL3Y0=",
+    "moduleFile": {
+      "sha256": "04aa144a38236501db9ae2ccfd4b7719760cadadbbd4b31189003565c57cce37",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-processing/0.0.0-250110-279353c.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-aaKu7VgG8nI6hYMdNqLRoFm9LcCy2lMUJEq9GOJUmV0=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-processing/0.0.0-250110-279353c.envoy/patches/ocp.patch"
+      },
+      {
+        "hash": "sha256-59iUMZnICtM9lp1Lxzmz2MBnxQuUetTAf4afp8k5b3k=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-processing/0.0.0-250110-279353c.envoy/patches/proto_scrubber_nodiscard.patch"
+      },
+      {
+        "hash": "sha256-Bbz/mzSUfBIUio7FiRUoKyS533fT5P2L4fRljgeR+SQ=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-processing/0.0.0-250110-279353c.envoy/patches/warnings.patch"
+      },
+      {
+        "hash": "sha256-Hh4dpnel0h5WQi53bZ5EYdqgn6NYuLrjurtnKTfKSGI=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-processing/0.0.0-250110-279353c.envoy/patches/skipfield.patch"
+      },
+      {
+        "hash": "sha256-vKQ5MJ8fx3KUaWTiV8BDIDQUqkM6Ek8tTEEQL5kPC0A=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proto-processing/0.0.0-250110-279353c.envoy/patches/utility.patch"
+      }
+    ],
+    "stripPrefix": "proto_processing_lib-279353cfab372ac7f268ae529df29c4d546ca18d",
+    "url": "https://github.com/grpc-ecosystem/proto_processing_lib/archive/279353cfab372ac7f268ae529df29c4d546ca18d.zip",
+    "version": "0.0.0-250110-279353c.envoy"
+  },
+  "protoc-gen-validate": {
+    "hash": "sha256-nkfvQewOJpoXOpS2dmzEvk4aEJj82gQLLwRBxRv7auI=",
+    "moduleFile": {
+      "sha256": "48db25694ec054d0bf9039ce2d51d292daf67b8ff8fc3c4071b43a807f313b41",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/protoc-gen-validate/1.3.3.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-dSY9Vm27yD5rYu4NGHFxOe1J1pjqa/SI1H3DrOdMkSc=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/protoc-gen-validate/1.3.3.envoy/patches/bazel_9_fixes.patch"
+      },
+      {
+        "hash": "sha256-0fgeyvyuLvLG5tEy2EoOPmnAJuajs5wCvzTjGxTw6pU=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/protoc-gen-validate/1.3.3.envoy/patches/pgv.patch"
+      },
+      {
+        "hash": "sha256-yYEau4hEZQ81haL/5ry0V333Poztu7zuZ57mAaxzqxA=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/protoc-gen-validate/1.3.3.envoy/patches/self_labels.patch"
+      }
+    ],
+    "stripPrefix": "protoc-gen-validate-1.3.3",
+    "url": "https://github.com/bufbuild/protoc-gen-validate/archive/refs/tags/v1.3.3.tar.gz",
+    "version": "1.3.3.envoy"
+  },
+  "proxy-wasm-cpp-host": {
+    "hash": "sha256-NNrFvOvwsVbkNb+N2b2sW+YLlflnxCDGgFeNc68oxgQ=",
+    "moduleFile": {
+      "sha256": "5ec13aeb03c5c148f1d340127d5f225c5094bc80a152b4c7c90708c529d57722",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proxy-wasm-cpp-host/0.0.0-260704-f2db56a.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-Whaucc3uwQP3qroDOnxF1WbdrgkenJNEJ3+ZbyIWGoc=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proxy-wasm-cpp-host/0.0.0-260704-f2db56a.envoy/patches/proxy-wasm-cpp-host.patch"
+      }
+    ],
+    "stripPrefix": "proxy-wasm-cpp-host-f2db56af443571e92a31c0b877106d9ea96e19ef",
+    "url": "https://github.com/proxy-wasm/proxy-wasm-cpp-host/archive/f2db56af443571e92a31c0b877106d9ea96e19ef.tar.gz",
+    "version": "0.0.0-260704-f2db56a.envoy"
+  },
+  "proxy-wasm-cpp-sdk": {
+    "hash": "sha256-tWCh2ieg06s3RSfpx9+k/mSTiHKZlFvidioFGM41Vw4=",
+    "moduleFile": {
+      "sha256": "dfc7349d5177a6d63cceac9710e2b00b4ea069973235031c45eb0e8c6a466fd7",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proxy-wasm-cpp-sdk/0.0.0-250925-e5256b0.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-1pNd3ySf7fst3GNoFaC0j3F46cEFgvkNP1aeLKGeoXc=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proxy-wasm-cpp-sdk/0.0.0-250925-e5256b0.envoy/patches/proxy-wasm-cpp-sdk.patch"
+      },
+      {
+        "hash": "sha256-CbcQCznuF2QsLa839N0Vwlhft7bwhAnvyPGxaLb1OQI=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/proxy-wasm-cpp-sdk/0.0.0-250925-e5256b0.envoy/patches/proxy_wasm_cpp_sdk-protobuf-v35.patch"
+      }
+    ],
+    "stripPrefix": "proxy-wasm-cpp-sdk-e5256b0c5463ea9961965ad5de3e379e00486640",
+    "url": "https://github.com/proxy-wasm/proxy-wasm-cpp-sdk/archive/e5256b0c5463ea9961965ad5de3e379e00486640.tar.gz",
+    "version": "0.0.0-250925-e5256b0.envoy"
+  },
+  "quiche": {
+    "hash": "sha256-9Ujel1YkhgDjGdsrLxxZBj9HHohAecBNEIF8K4+u3XM=",
+    "moduleFile": {
+      "sha256": "80964ef537c45786617df5c0ce2e6bed4cbc36f7a0bef6f4ead41fb9abfaaa0a",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/quiche/0.0.0-261006-9e60ac2.envoy/MODULE.bazel"
+    },
+    "overlay": [
+      {
+        "hash": "sha256-0EhF5qJ8DrRwnD/Y9Y15vB30QJUMXLCOBbKVA2VBFBQ=",
+        "path": "BUILD.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/quiche/0.0.0-261006-9e60ac2.envoy/overlay/BUILD.bazel"
+      },
+      {
+        "hash": "sha256-iSZdcoZ4fJTDsezIPLhCZV0FUZQo92gGpmWPJHCK+ak=",
+        "path": "envoy_deps.bzl",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/quiche/0.0.0-261006-9e60ac2.envoy/overlay/envoy_deps.bzl"
+      },
+      {
+        "hash": "sha256-CMNzHyry4UGLTGqH1aRFngZjdz3WEpDwipdJyIId3t0=",
+        "path": "extensions.bzl",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/quiche/0.0.0-261006-9e60ac2.envoy/overlay/extensions.bzl"
+      },
+      {
+        "hash": "sha256-G8VUNge4iweEN07/YtjmlSvKeeyfcZyhPE5wtLIHK0k=",
+        "path": "quiche_overlay.bzl",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/quiche/0.0.0-261006-9e60ac2.envoy/overlay/quiche_overlay.bzl"
+      }
+    ],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-HnRMLDXAx2pwixjFeCkBiMLVl80pAjfn7bVDv4G8ftQ=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/quiche/0.0.0-261006-9e60ac2.envoy/patches/balsa_frame_unused_variable.patch"
+      },
+      {
+        "hash": "sha256-pPXq5RbMW5YpJdq/gcGZwmZghwRPIW3lMzlW4xd2x3U=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/quiche/0.0.0-261006-9e60ac2.envoy/patches/delete-bazel-files.patch"
+      }
+    ],
+    "stripPrefix": "quiche-9e60ac2b905a435555e071f403e9418ce11c773f",
+    "url": "https://github.com/google/quiche/archive/9e60ac2b905a435555e071f403e9418ce11c773f.tar.gz",
+    "version": "0.0.0-261006-9e60ac2.envoy"
+  },
+  "skywalking-data-collect-protocol": {
+    "hash": "sha256-cOY90w2d/c8KDvCXbhnH4h+hQRrxPsMUUr0do35XjjU=",
+    "moduleFile": {
+      "sha256": "a30a9b06eb67f4b6e48846859c64102740fd76d1fafa2590e9985eeadf0d5bad",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/skywalking-data-collect-protocol/10.4.0.envoy/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "skywalking-data-collect-protocol-10.4.0",
+    "url": "https://github.com/apache/skywalking-data-collect-protocol/archive/v10.4.0.tar.gz",
+    "version": "10.4.0.envoy"
+  },
+  "wuffs": {
+    "hash": "sha256-nKT1QBp2viRDYt6LOROPAfJFbERLA1hHA6nx25BJG6Y=",
+    "moduleFile": {
+      "sha256": "e46699ee4851ddd18a50012b34c662f2390f014394cb17b8e07337cbc4033eb2",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/wuffs/0.4.0-alpha.9.envoy/MODULE.bazel"
+    },
+    "overlay": [
+      {
+        "hash": "sha256-8r1BtDJz1o4gPFHioyvZSxlmO+uMdlk6VO1dIoljn/I=",
+        "path": "BUILD.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/wuffs/0.4.0-alpha.9.envoy/overlay/BUILD.bazel"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "wuffs-mirror-release-c-0.4.0-alpha.9",
+    "url": "https://github.com/google/wuffs-mirror-release-c/archive/refs/tags/v0.4.0-alpha.9.tar.gz",
+    "version": "0.4.0-alpha.9.envoy"
+  },
+  "xds": {
+    "hash": "sha256-SVNfPDNwAEMJ2lAZTAm7/FKNRwJCTdRufVaieKPfwV0=",
+    "moduleFile": {
+      "sha256": "03e1c50b16fc2403de5dd98ff8e2dc0b404865740434b8705c7c0853241f943d",
+      "url": "https://bcr.bazel.build/modules/xds/0.0.0-20251210-ee656c7/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-2kf90WvQ1u/lYxrG4Zwx7OPA6ScyrsFqdKERBlI6yh8=",
+        "url": "https://bcr.bazel.build/modules/xds/0.0.0-20251210-ee656c7/patches/bzlmod.patch"
+      }
+    ],
+    "stripPrefix": "xds-ee656c7534f5d7dc23d44dd611689568f72017a6",
+    "url": "https://github.com/cncf/xds/archive/ee656c7534f5d7dc23d44dd611689568f72017a6.tar.gz",
+    "version": "0.0.0-20251210-ee656c7"
+  },
+  "zipkin-api": {
+    "hash": "sha256-bI7iAUzwdGukUuXywB8DjfYOhestkQsib5qifdwORM8=",
+    "moduleFile": {
+      "sha256": "70616960ecd07fb708362e80bc9b2800da523f75487e2a7b256d25ebeaf9daf3",
+      "url": "https://bcr.bazel.build/modules/zipkin-api/1.0.0.bcr.1/MODULE.bazel"
+    },
+    "overlay": [],
+    "patchStrip": 0,
+    "patches": [
+      {
+        "hash": "sha256-Uxmtf0IERJ3IG2M8ArK/lMJoo1LpLB9tgMZ+VnZEVnY=",
+        "url": "https://bcr.bazel.build/modules/zipkin-api/1.0.0.bcr.1/patches/add_build_file.patch"
+      }
+    ],
+    "stripPrefix": "zipkin-api-1.0.0",
+    "url": "https://github.com/openzipkin/zipkin-api/archive/refs/tags/1.0.0.tar.gz",
+    "version": "1.0.0.bcr.1"
+  }
+}

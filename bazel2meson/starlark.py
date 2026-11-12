@@ -138,6 +138,19 @@ def _starlark_type(value: Any) -> str:
     return "function" if callable(value) else "unknown"
 
 
+class _Depset(list):
+    def to_list(self) -> list[Any]:
+        return list(self)
+
+
+def _depset(direct: Any = (), transitive: Any = (), **_: Any) -> _Depset:
+    out = _Depset()
+    for item in [*(direct or ()), *(i for t in transitive or () for i in t)]:
+        if item not in out:
+            out.append(item)
+    return out
+
+
 # Python keywords that are plain identifiers in Starlark.
 _KEYWORD_IDENT = re.compile(
     r"\b(async|await|nonlocal|global|class|try|except|finally|raise|with|yield|is)\b(?=\s*[=,)])"
@@ -168,6 +181,12 @@ class Workspace:
     repos: dict[str, Repo]
     # .bzl files replaced wholesale by our own definitions: label -> symbols
     overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+    # repo -> {name used inside that repo: canonical repo name}
+    mappings: dict[str, dict[str, str]] = field(default_factory=dict)
+    # Labels that stand for another label, e.g. targets of Bazel's generated
+    # "*_deps" repositories that a module's extension points back at the root.
+    redirects: dict[str, str] = field(default_factory=dict)
 
     targets: dict[Label, Target] = field(default_factory=dict)
     _modules: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
@@ -221,11 +240,10 @@ class Workspace:
 
     # -- labels -----------------------------------------------------------
 
-    def canonical_repo(self, name: str) -> str:
+    def canonical_repo(self, name: str, context: str) -> str:
+        name = self.mappings.get(context, {}).get(name) or self.mappings.get("*", {}).get(name, name)
         repo = self.repos.get(name)
-        if repo is None:
-            return name
-        return repo.name
+        return name if repo is None else repo.name
 
     def label(self, text: str | Label, repo: str | None = None, pkg: str | None = None) -> Label:
         if isinstance(text, Label):
@@ -236,9 +254,9 @@ class Workspace:
             text = text[1:]
         if text.startswith("@"):
             head, sep, rest = text[1:].partition("//")
-            target_repo = self.canonical_repo(head)
+            target_repo = self.canonical_repo(head, repo)
             if not sep:
-                return Label(target_repo, "", head)
+                return self._redirect(Label(target_repo, "", head))
             text = "//" + rest
         else:
             target_repo = repo
@@ -246,8 +264,12 @@ class Workspace:
             path, sep, name = text[2:].partition(":")
             if not sep:
                 name = path.rsplit("/", 1)[-1]
-            return Label(target_repo, path, name)
+            return self._redirect(Label(target_repo, path, name))
         return Label(target_repo, pkg, text.removeprefix(":"))
+
+    def _redirect(self, label: Label) -> Label:
+        target = self.redirects.get(str(label))
+        return label if target is None else self.label(target, "", "")
 
     # -- file access ------------------------------------------------------
 
@@ -358,7 +380,7 @@ class Workspace:
             "type": _starlark_type,
             "Label": make_label,
             "json": Struct(decode=_json.loads, encode=_json.dumps, encode_indent=_json.dumps),
-            "depset": lambda *a, **k: [],
+            "depset": _depset,
             "native": NativeModule(ws),
             "package_name": lambda: ws._ctx[-1][1],
             "repository_name": lambda: "@" + ws._ctx[-1][0],
@@ -438,6 +460,10 @@ class Workspace:
             symbols = self._globals(label.repo, label.pkg, is_build=False)
             self._modules[key] = symbols
             self._exec(path, symbols)
+            # `foo = rule(...)`: the rule is known by the name it is bound to.
+            for name, value in symbols.items():
+                if isinstance(value, Recorder) and value._kind == "custom_rule":
+                    value._kind = name.removeprefix("_")
         self._modules[key] = symbols
         return symbols
 
@@ -461,19 +487,33 @@ class Workspace:
 
     # -- rule recording ---------------------------------------------------
 
-    def recorder(self, kind: str):
-        def record(*args: Any, **attrs: Any) -> Any:
-            name = attrs.get("name")
-            # Symbols loaded from files we cannot read may be helper functions
-            # rather than rules; those are not called like a rule.
-            if args or not isinstance(name, str) or not self._ctx:
-                return Stub(kind)
-            repo, pkg = self._ctx[-1]
-            self.targets[Label(repo, pkg, name)] = Target(Label(repo, pkg, name), kind, attrs)
-            return None
+    def recorder(self, kind: str) -> Recorder:
+        return Recorder(self, kind)
 
-        record.__name__ = kind
-        return record
+
+class Recorder:
+    """A rule: calling it declares a target in the package being evaluated."""
+
+    def __init__(self, ws: Workspace, kind: str) -> None:
+        self._ws = ws
+        self._kind = kind
+        self.__name__ = kind
+
+    def __call__(self, *args: Any, **attrs: Any) -> Any:
+        ws = self._ws
+        name = attrs.get("name")
+        # Symbols loaded from files we cannot read may be helper functions
+        # or structs instead of rules; those are not called like a rule.
+        if args or not isinstance(name, str) or not ws._ctx:
+            return Stub(self._kind)
+        repo, pkg = ws._ctx[-1]
+        ws.targets[Label(repo, pkg, name)] = Target(Label(repo, pkg, name), self._kind, attrs)
+        return None
+
+    def __getattr__(self, item: str) -> Stub:
+        if item.startswith("__"):
+            raise AttributeError(item)
+        return Stub(f"{self._kind}.{item}")
 
 
 NATIVE_RULES = (

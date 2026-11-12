@@ -1,0 +1,130 @@
+# What to build and where its dependencies come from.
+
+name = "envoy"
+root = "//source/exe:envoy-static"
+
+# Repositories created by module extensions that duplicate a module.
+[repo_aliases]
+com_google_googleapis = "googleapis"
+
+# Bazel repositories that are sub-directories of the Envoy tree.
+[repos]
+envoy_api = "api"
+envoy_build_config = "source/extensions"
+
+[config]
+values = { compilation_mode = "opt" }
+
+[config.defines]
+tcmalloc = "disabled"
+
+[config.flags]
+"@proxy-wasm-cpp-host//bazel:engine" = "disabled"
+
+# External repositories provided by installed libraries. Names are looked up
+# with Meson's dependency(), i.e. pkg-config first, then CMake. "lib:NAME" is
+# a library without either, found with the compiler's default search path.
+# Bazel target names mostly match abseil's pkg-config names; the ones that
+# differ are covered by what the listed libraries pull in.
+[system.abseil-cpp]
+dependencies = ["absl_base", "absl_strings", "absl_status", "absl_statusor", "absl_flat_hash_map", "absl_synchronization", "absl_time"]
+template = "absl_{name}"
+optional = true
+
+[system.protobuf]
+dependencies = ["protobuf"]
+
+[system.grpc]
+dependencies = ["grpc++"]
+
+[system.boringssl]
+dependencies = ["lib:ssl", "lib:crypto"]
+
+[system.zlib-ng]
+dependencies = ["zlib-ng"]
+
+[system.brotli]
+targets = { brotlidec = ["libbrotlidec"], brotlienc = ["libbrotlienc"] }
+
+[system.c-ares]
+dependencies = ["libcares"]
+
+[system.flatbuffers]
+dependencies = ["flatbuffers"]
+
+[system.fmt]
+dependencies = ["fmt"]
+
+[system.libevent]
+dependencies = ["libevent", "libevent_pthreads"]
+
+[system.libmaxminddb]
+dependencies = ["libmaxminddb"]
+
+[system.liburing]
+dependencies = ["liburing"]
+
+[system.luajit]
+dependencies = ["luajit"]
+
+[system.msgpack-c]
+dependencies = ["msgpack-cxx"]
+
+[system.nghttp2]
+dependencies = ["libnghttp2"]
+
+[system.nlohmann_json]
+dependencies = ["nlohmann_json"]
+
+[system.opentelemetry-cpp]
+dependencies = ["opentelemetry_api"]
+
+[system.re2]
+dependencies = ["re2"]
+
+[system.spdlog]
+dependencies = ["spdlog"]
+
+[system.tclap]
+dependencies = ["tclap"]
+
+[system.xxhash]
+dependencies = ["libxxhash"]
+
+[system.yaml-cpp]
+dependencies = ["yaml-cpp"]
+
+[system.antlr4-cpp-runtime]
+dependencies = ["lib:antlr4-runtime"]
+
+[system.zstd]
+dependencies = ["libzstd"]
+
+# Repositories are named after their Bazel module.
+
+# External repositories that are built from source because nixpkgs has no
+# (compatible) package. `python -m bazel2meson.lock` pins them in sources.json.
+[source]
+cel-cpp = {}
+cpp2sky = {}
+dd-trace-cpp = {}
+googleapis = {}
+googleurl = {}
+grpc-httpjson-transcoding = {}
+hessian2-codec = {}
+libcircllhist = {}
+opentelemetry-proto = {}
+prometheus-metrics-model = {}
+proto-converter = {}
+proto-field-extraction = {}
+proto-processing = {}
+protoc-gen-validate = {}
+proxy-wasm-cpp-host = {}
+proxy-wasm-cpp-sdk = {}
+quiche = {}
+wuffs = {}
+xds = {}
+zipkin-api = {}
+cel-spec = {}
+ocp-diag-core = {}
+skywalking-data-collect-protocol = {}

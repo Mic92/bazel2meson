@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .starlark import Label, Select, SelectBranch, Target, Workspace
+from .starlark import Label, Recorder, Select, SelectBranch, Stub, Target, Workspace
 
 DEFAULT = "//conditions:default"
 
@@ -39,6 +39,7 @@ class Resolver:
         self.config = config
         self._cache: dict[Label, bool] = {}
         self.unknown_conditions: set[str] = set()
+        self.unknown_values: set[str] = set()
 
     # -- conditions ---------------------------------------------------------
 
@@ -139,9 +140,15 @@ class Resolver:
 
     def attr(self, target: Target, name: str, default: Any = None) -> Any:
         value = target.attrs.get(name)
+        if value is not None:
+            value = self.value(value)
+        if isinstance(value, (Stub, Recorder)):
+            # A constant loaded from a .bzl file of a repository we have no sources for.
+            self.unknown_values.add(f"{target.label} {name}")
+            value = None
         if value is None:
             return [] if default is None else default
-        return self.value(value)
+        return value
 
     # -- traversal ----------------------------------------------------------
 
