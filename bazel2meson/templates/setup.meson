@@ -33,7 +33,9 @@ foreach name : system_deps
   elif name.startswith('includes:')
     deps += dependency(name.substring(9)).partial_dependency(includes: true)
   elif name.startswith('cmake:')
-    deps += dependency(name.split(':')[1], method: 'cmake', modules: [name.split(':')[2]])
+    # The target may contain colons itself, as in 'cmake:dlpack:dlpack::dlpack'.
+    package = name.split(':')[1]
+    deps += dependency(package, method: 'cmake', modules: [name.replace('cmake:' + package + ':', '')])
   elif name.startswith('?')
     deps += dependency(name.substring(1), required: false)
   else

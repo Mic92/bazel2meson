@@ -4,8 +4,11 @@ tblgen = {
   'mlir-tblgen': find_program('mlir-tblgen'),
 }
 tblgen_includes = []
-foreach package : ['LLVM', 'MLIR']
-  foreach dir : dependency(package, method: 'cmake').get_variable(cmake: package.to_upper() + '_INCLUDE_DIRS').split(';')
+# MLIR's CMake package loads LLVM's. Asking Meson for LLVM directly would go
+# to its own LLVM handler, which has no CMake variables.
+mlir_package = dependency('MLIR', method: 'cmake')
+foreach variable : ['LLVM_INCLUDE_DIRS', 'MLIR_INCLUDE_DIRS']
+  foreach dir : mlir_package.get_variable(cmake: variable).split(';')
     tblgen_includes += '-I' + dir
   endforeach
 endforeach

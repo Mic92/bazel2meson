@@ -399,7 +399,16 @@ class Emitter:
         tools = self.rs.labels(target, "tools")
         outs = list(self.rs.attr(target, "outs"))
         cmd = self.rs.attr(target, "cmd", "")
-        out_dir = self.build_path(self.directory(label))
+        # Meson writes outputs into the directory of the meson.build file
+        # only, so outputs in a sub-directory get one there.
+        nested = {str(PurePosixPath(o).parent) for o in outs}
+        directory = self.directory(label)
+        if len(nested) == 1 and nested != {"."}:
+            directory = f"{directory}/{nested.pop()}"
+        elif len(nested) > 1:
+            self.problems["genrule: outputs in several directories"].add(str(label))
+        out_dir = self.build_path(directory)
+        names = [PurePosixPath(o).name for o in outs]
 
         depends: list[Expr] = []
         programs: list[Expr] = []
@@ -407,7 +416,7 @@ class Emitter:
         def produced(item: Label) -> str | None:
             """Shell word for a file some genrule writes into the build tree."""
             if item.pkg == label.pkg and item.repo == label.repo and item.name in outs:
-                return f"{out_dir}/{shlex.quote(item.name)}"
+                return f"{out_dir}/{shlex.quote(PurePosixPath(item.name).name)}"
             producer = self.generated(item)
             if producer is None or self.targets[producer].kind != "genrule":
                 return None
@@ -447,7 +456,7 @@ class Emitter:
         cmd = re.sub(r"\./\$\(location ([^)]+)\)", r"$(location \1)", cmd)
         cmd = re.sub(r"\$\((?:location|execpath|rootpath) ([^)]+)\)", location, cmd)
         src_words = [w for w in (word(s) for s in srcs) if w]
-        out_words = [f"{out_dir}/{shlex.quote(o)}" for o in outs]
+        out_words = [f"{out_dir}/{shlex.quote(o)}" for o in names]
         cmd = cmd.replace("$<", src_words[0] if src_words else "")
         cmd = cmd.replace("$(SRCS)", " ".join(src_words))
         cmd = cmd.replace("$(OUTS)", " ".join(out_words))
@@ -466,15 +475,15 @@ class Emitter:
         args["command"] = [*args["command"], *programs]
         if depends:
             args["depends"] = depends
-        self.subdirs[self.directory(label)] += [
-            assign(name, call("custom_target", output=outs, depend_files=[SOURCE_ROOT / p for p in inputs], **args)),
+        self.subdirs[directory] += [
+            assign(name, call("custom_target", output=names, depend_files=[SOURCE_ROOT / p for p in inputs], **args)),
         ]
         compilable = {i for i, o in enumerate(outs) if PurePosixPath(o).suffix in SOURCE_SUFFIXES}
         for i in compilable:
             self.genrule_sources[Label(label.repo, label.pkg, outs[i])] = var(name)[i]
         # Meson would compile sources among the outputs wherever they are listed.
         headers = [var(name)[i] for i in range(len(outs)) if i not in compilable] if compilable else var(name)
-        self.subdirs[self.directory(label)] += [extend("generated_headers", headers), ""]
+        self.subdirs[directory] += [extend("generated_headers", headers), ""]
 
     def genrule_name(self, label: Label) -> str:
         return "gen_" + sanitize(f"{self.directory(label)}/{label.name}")
@@ -571,7 +580,10 @@ class Emitter:
                 if expr is not None and render(expr) not in map(render, linkopts):
                     linkopts.append(expr)
             for inc in self.rs.attr(target, "includes"):
-                include_dirs.add(str(PurePosixPath(self.directory(label)) / inc))
+                # Bazel accepts directories that do not exist, Meson does not.
+                root = self.ws.repo_root(label.repo)
+                if root is not None and (root / label.pkg / inc).is_dir():
+                    include_dirs.add(str(PurePosixPath(self.directory(label)) / inc))
             strip = self.rs.attr(target, "strip_include_prefix", "")
             prefix = self.rs.attr(target, "include_prefix", "")
             if prefix:
