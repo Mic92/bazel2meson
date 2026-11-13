@@ -67,9 +67,6 @@ dependencies = ["hwloc"]
 [system.farmhash_archive]
 dependencies = ["lib:farmhash"]
 
-[system.dlpack]
-dependencies = ["cmake:dlpack:dlpack::dlpack"]
-
 [system.onednn_async]
 dependencies = ["cmake:dnnl:DNNL::dnnl"]
 
@@ -78,9 +75,6 @@ targets = { brotlidec = ["libbrotlidec"], brotlienc = ["libbrotlienc"] }
 
 [system.zstd]
 dependencies = ["libzstd"]
-
-[system.cpuinfo]
-dependencies = ["libcpuinfo"]
 
 [system.robin_map]
 dependencies = ["cmake:tsl-robin-map:tsl::robin_map"]
@@ -92,11 +86,6 @@ dependencies = ["python3"]
 # Only numpy's headers are used at build time.
 [system.pypi]
 dependencies = ["numpy"]
-
-# Include paths that only exist in Bazel's view of a dependency, mapped to
-# the header the installed library provides.
-[forward_headers]
-"include/dlpack/dlpack.h" = "dlpack/dlpack.h"
 
 # Built from source: not in nixpkgs, or tied to XLA's LLVM pin.
 [source]
@@ -114,6 +103,9 @@ XNNPACK = {}
 eigen_archive = {}
 # C++ headers of the Python package, which it does not install.
 ml_dtypes_py = {}
+# XLA uses enumerators newer than the releases in nixpkgs.
+dlpack = {}
+cpuinfo = {}
 # XLA shares one nanobind between all modules; nixpkgs ships it as sources
 # for CMake projects only.
 nanobind = {}

@@ -11,6 +11,36 @@
     ],
     "version": "0a66ebb5817fce48df605451444dcfc27a5e4ee4"
   },
+  "cpuinfo": {
+    "hash": "sha256-/iqkMlSDii61ZY0XQmlkc6HYNKV/Kgs41TM0a80hJII=",
+    "overlay": [],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "cpuinfo-8ce83db858065145192c97af90cb668ad72a12e9",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/pytorch/cpuinfo/archive/8ce83db858065145192c97af90cb668ad72a12e9.zip",
+      "https://github.com/pytorch/cpuinfo/archive/8ce83db858065145192c97af90cb668ad72a12e9.zip"
+    ],
+    "version": "8ce83db858065145192c97af90cb668ad72a12e9"
+  },
+  "dlpack": {
+    "hash": "sha256-wy6TifTLB5o9H98Ad8JXZQ0A+CTfTAeclGiyn8r8/sc=",
+    "overlay": [
+      {
+        "file": "third_party/dlpack/dlpack.BUILD",
+        "path": "BUILD.bazel",
+        "repo": "xla"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "dlpack-77aafa4d3b0f80feffce9ad4c718dd26751ee0e4",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/dmlc/dlpack/archive/77aafa4d3b0f80feffce9ad4c718dd26751ee0e4.tar.gz",
+      "https://github.com/dmlc/dlpack/archive/77aafa4d3b0f80feffce9ad4c718dd26751ee0e4.tar.gz"
+    ],
+    "version": "77aafa4d3b0f80feffce9ad4c718dd26751ee0e4"
+  },
   "ducc": {
     "hash": "sha256-B3z0vQvX7dqmZJoCQoX/+W4mYsXm8vtu1cV3H53gk/M=",
     "overlay": [

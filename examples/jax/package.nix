@@ -17,9 +17,7 @@
   abseil-cpp,
   boringssl,
   brotli,
-  cpuinfo,
   curl,
-  dlpack,
   farmhash,
   hwloc,
   jsoncpp,
@@ -36,13 +34,23 @@
 let
   version = "0.12.0.1";
 
-  # XLA follows LLVM's main branch. The snapshot in nixpkgs is not in the
-  # binary cache and one of its 81k tests fails (tools/gold/PowerPC/mtriple.ll).
-  llvmPackages = llvmPackages_git.overrideScope (
-    _final: prev: {
-      libllvm = prev.libllvm.overrideAttrs { doCheck = false; };
-    }
-  );
+  # XLA follows LLVM's main branch and breaks with a snapshot only eleven
+  # days newer, so LLVM is built at the commit XLA pins in
+  # third_party/llvm/workspace.bzl. One of its 81k tests fails
+  # (tools/gold/PowerPC/mtriple.ll), hence no test suite.
+  llvmPackages =
+    (llvmPackages_git.override {
+      gitRelease = {
+        rev = "2b35fb9283a44aae92cb72a41d077ee8de2be7ad";
+        rev-version = "24.0.0-unstable-2026-10-14";
+        sha256 = "sha256-/+xYeXGggERrwRWJ9Et2QUTRnAS5ZRPswIMocjU+uAg=";
+      };
+    }).overrideScope
+      (
+        _final: prev: {
+          libllvm = prev.libllvm.overrideAttrs { doCheck = false; };
+        }
+      );
 
   src = fetchFromGitHub {
     owner = "jax-ml";
@@ -115,9 +123,7 @@ stdenv.mkDerivation {
     abseil-cpp
     boringssl
     brotli
-    cpuinfo
     curl
-    dlpack
     farmhash
     hwloc
     jsoncpp

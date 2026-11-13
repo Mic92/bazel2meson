@@ -46,6 +46,7 @@ PASSIVE_KINDS = {
     "expand_template",
 }
 SOURCE_SUFFIXES = {".cc", ".c", ".cpp", ".S"}
+HEADER_SUFFIXES = {".h", ".hh", ".hpp", ".inc"}
 # Directory for headers that Bazel exposes under a different path than they have on disk.
 VIRTUAL_INCLUDES = "bazel2meson-includes"
 SCRIPTS = "bazel2meson-scripts"
@@ -242,6 +243,40 @@ class Emitter:
                 value = self.rs.config.flags.get(str(label)) or self.rs.value(target.attrs["build_setting_default"])
                 stack.append(self.ws.label(str(value), label.repo, label.pkg))
 
+    def include_dirs_of(self, label: Label, target: Target) -> set[str]:
+        """Directories a target adds to the include path of the targets using it."""
+        found: set[str] = set()
+        root = self.ws.repo_root(label.repo)
+        if root is None:
+            return found
+        directory = PurePosixPath(self.directory(label))
+        for inc in self.rs.attr(target, "includes", []):
+            # Bazel accepts directories that do not exist, Meson does not.
+            if (root / label.pkg / inc).is_dir():
+                found.add(str(directory / inc))
+        strip = self.rs.attr(target, "strip_include_prefix", "")
+        if strip and not self.rs.attr(target, "include_prefix", ""):
+            base = self.settings.repo_dirs[label.repo] if strip.startswith("/") else directory
+            found.add(str(PurePosixPath(base) / strip.lstrip("/")))
+        return found
+
+    def contested_dirs(self, dirs: set[str]) -> set[str]:
+        """Include directories in which the same relative path names different headers.
+
+        Bazel only shows a target the directories of its own dependencies.
+        With one include path for everything, the first such directory would
+        win for all sources.
+        """
+        source = self.ws.repo_root(self.settings.root.repo)
+        roots = set(self.settings.repo_dirs.values())
+        owners: dict[str, set[str]] = defaultdict(set)
+        for directory in dirs - roots:
+            base = source / directory
+            for path in base.rglob("*"):
+                if path.suffix in HEADER_SUFFIXES:
+                    owners[str(path.relative_to(base))].add(directory)
+        return {d for sharing in owners.values() if len(sharing) > 1 for d in sharing}
+
     def linkopt(self, label: Label, opt: str) -> Value | None:
         """A linker option, None to drop it."""
         if opt.startswith("-fuse-ld"):
@@ -364,6 +399,14 @@ class Emitter:
                 if target.kind in plugin.kinds:
                     selected[plugin.name].update(self.rs.labels(target, "deps"))
 
+        # proto_library -> options of the cc_grpc_library generating its stubs.
+        grpc: dict[Label, str] = {}
+        for target in self.targets.values():
+            if target.kind == "cc_grpc_library":
+                options = ",".join(str(flag) for flag in self.rs.attr(target, "plugin_flags", []))
+                grpc.update(dict.fromkeys(self.rs.labels(target, "srcs"), options))
+        self.grpc_protos = bool(grpc) or any(grpc for _, _, grpc in self.settings.extra_protos)
+
         roots: set[str] = set()
         self.proto_count = 0
         for label, target in sorted(self.targets.items()):
@@ -379,6 +422,8 @@ class Emitter:
                 root = str(PurePosixPath(self.directory(label)) / strip)
             roots.add(root)
             generators = [(p.name, p.options, p.suffixes) for p in self.protoc_plugins if label in selected[p.name]]
+            if label in grpc:
+                generators.append(("grpc", grpc[label], (".grpc.pb.cc", ".grpc.pb.h")))
             for src in self.rs.labels(target, "srcs"):
                 path = self.path(src)
                 if path is None:
@@ -542,11 +587,15 @@ class Emitter:
                 if item not in dest:
                     dest.append(item)
 
-        generated_srcs: list[tuple[str, tuple[str, ...], Label]] = []
+        generated_srcs: list[tuple[str, tuple[str, ...], tuple[str, ...], Label]] = []
         dependent_defines: list[str] = []
-        # (repository, machine options) -> sources compiled with them.
-        variants: dict[tuple[str, tuple[str, ...]], list[str]] = defaultdict(list)
-        variant_generated: dict[tuple[str, tuple[str, ...]], list[Expr]] = defaultdict(list)
+        # (repository, own options, include directories to search first) ->
+        # sources that cannot be compiled like the rest of the repository.
+        type Variant = tuple[str, tuple[str, ...], tuple[str, ...]]
+        variants: dict[Variant, list[str]] = defaultdict(list)
+        variant_generated: dict[Variant, list[Expr]] = defaultdict(list)
+        own_dirs = {label: self.include_dirs_of(label, target) for label, target in self.targets.items()}
+        contested = self.contested_dirs(set().union(*own_dirs.values()))
         for label, target in sorted(self.targets.items()):
             if target.kind in self.handlers:
                 self.handlers[target.kind](label, target)
@@ -570,6 +619,9 @@ class Emitter:
             flags += [f"-D{d}" for d in self.rs.attr(target, "local_defines")]
             # Its other options stay with it too, as they tend to go together.
             machine = tuple(flags) if isinstance(unit, str) and any(f.startswith("-m") for f in flags) else ()
+            # Contested directories of the target and its dependencies go first.
+            near = own_dirs[label].union(*(own_dirs.get(dep, set()) for dep in self.rs.labels(target, "deps")))
+            first = tuple(sorted(near & contested)) if isinstance(unit, str) else ()
             exported = [str(d) for d in self.rs.attr(target, "defines")]
             if machine:
                 # Bazel hands defines to the targets depending on this one.
@@ -584,9 +636,9 @@ class Emitter:
                     continue
                 path = self.path(src)
                 if path is not None:
-                    (variants[unit, machine] if machine else sources[unit]).append(path)
+                    (variants[unit, machine, first] if machine or first else sources[unit]).append(path)
                 elif isinstance(unit, str):
-                    generated_srcs.append((unit, machine, src))
+                    generated_srcs.append((unit, machine, first, src))
             for stamp in self.rs.labels(target, "linkstamp"):
                 # Bazel compiles linkstamps at link time with the workspace
                 # status as defines; here the status is fixed when generating.
@@ -602,11 +654,7 @@ class Emitter:
                 expr = self.linkopt(label, str(opt))
                 if expr is not None and render(expr) not in map(render, linkopts):
                     linkopts.append(expr)
-            for inc in self.rs.attr(target, "includes"):
-                # Bazel accepts directories that do not exist, Meson does not.
-                root = self.ws.repo_root(label.repo)
-                if root is not None and (root / label.pkg / inc).is_dir():
-                    include_dirs.add(str(PurePosixPath(self.directory(label)) / inc))
+            include_dirs.update(self.include_dirs_of(label, target))
             strip = self.rs.attr(target, "strip_include_prefix", "")
             prefix = self.rs.attr(target, "include_prefix", "")
             if prefix:
@@ -619,13 +667,10 @@ class Emitter:
                         continue
                     visible = PurePosixPath(prefix) / PurePosixPath(path).relative_to(stripped)
                     virtual[f"{VIRTUAL_INCLUDES}/{visible}"] = f"#include {c_string(path)}\n"
-            elif strip:
-                base = repo_dir if strip.startswith("/") else self.directory(label)
-                include_dirs.add(str(PurePosixPath(base) / strip.lstrip("/")))
 
-        for repo, machine, src in generated_srcs:
+        for repo, machine, first, src in generated_srcs:
             if src in self.genrule_sources:
-                dest = variant_generated[repo, machine] if machine else self.generated_sources[repo]
+                dest = variant_generated[repo, machine, first] if machine or first else self.generated_sources[repo]
                 dest.append(self.genrule_sources[src])
         if not any(path.startswith(VIRTUAL_INCLUDES + "/") for path in virtual):
             include_dirs.discard(VIRTUAL_INCLUDES)
@@ -658,7 +703,7 @@ class Emitter:
             "",
             assign("proto_roots", self.proto_roots),
             assign("protoc_generators", protoc_generators),
-            assign("grpc_protos", any(grpc for _, _, grpc in self.settings.extra_protos)),
+            assign("grpc_protos", self.grpc_protos),
             assign("system_deps", sorted(self.system_deps)),
             assign("include_dirs", sorted(include_dirs)),
             template("setup.meson"),
@@ -708,22 +753,26 @@ class Emitter:
                 "dependencies": [var("deps"), var("proto_dep")],
             }
 
-        for index, (repo, machine) in enumerate(sorted(set(variants) | set(variant_generated))):
-            args = cxx_args(list(machine))
+        for index, key in enumerate(sorted(set(variants) | set(variant_generated))):
+            repo, machine, first = key
+            args = cxx_args(list(machine) if machine else [*copts[repo], *(f"-D{d}" for d in dependent_defines)])
+            suffix = "_".join(f for f in machine if f.startswith("-m"))
             root.append(
                 extend(
                     "libs",
                     call(
                         "static_library",
-                        sanitize(f"{repo or project}_{'_'.join(f for f in machine if f.startswith('-m'))}_{index}"),
+                        sanitize(f"{repo or project}_{suffix}_{index}"),
                         sources=[
-                            call("files", sorted(set(variants[repo, machine]))),
-                            *variant_generated[repo, machine],
+                            call("files", sorted(set(variants[key]))),
+                            *variant_generated[key],
                             var("generated_headers"),
                         ],
                         cpp_args=args,
                         c_args=c_args(args),
-                        include_directories=var("inc"),
+                        include_directories=[call("include_directories", list(first)), var("inc")]
+                        if first
+                        else var("inc"),
                         dependencies=[var("deps"), var("proto_dep")],
                     ),
                 )
