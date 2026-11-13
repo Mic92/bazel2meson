@@ -1,8 +1,12 @@
 # bazel2meson
 
-Generate a [Meson](https://mesonbuild.com) build from a project's Bazel build
-files, taking dependencies from the system wherever a compatible version is
-installed.
+Generate a [Meson](https://mesonbuild.com) build from a project's Bazel build files.
+
+Bazel projects tend to vendor large amount of third-party dependencies,
+which makes them hostile for packaging in downstream distribution,
+that have the desire to provide security updates accross the ecosystem.
+
+This project allows to take dependencies from the system, wherever a compatible version is installed.
 
 It is meant for packaging C/C++ projects that only ship a Bazel build: the
 result builds with Meson and Ninja, each dependency is either a system
