@@ -47,8 +47,24 @@ let
       };
     }).overrideScope
       (
-        _final: prev: {
-          libllvm = prev.libllvm.overrideAttrs { doCheck = false; };
+        final: prev:
+        let
+          # A nixpkgs patch for the test suite that only fits the newer snapshot.
+          withoutTestPatch =
+            old:
+            lib.filter (p: !lib.hasSuffix "llvm-lit-cfg-add-libs-to-dylib-path.patch" (toString p)) old.patches;
+        in
+        {
+          # The scope takes its build tools from the unmodified package set,
+          # whose TableGen is too new for these sources.
+          libllvm = (prev.libllvm.override { buildLlvmPackages = final; }).overrideAttrs (old: {
+            doCheck = false;
+            patches = withoutTestPatch old;
+          });
+          tblgen = prev.tblgen.overrideAttrs (old: {
+            patches = withoutTestPatch old;
+          });
+          mlir = prev.mlir.override { buildLlvmPackages = final; };
         }
       );
 
