@@ -43,6 +43,37 @@
             };
       });
 
-      formatter = forAllSystems (pkgs: pkgs.nixfmt-tree);
+      formatter = forAllSystems (
+        pkgs:
+        pkgs.treefmt.withConfig {
+          runtimeInputs = [
+            pkgs.nixfmt
+            pkgs.ruff
+          ];
+          settings = {
+            on-unmatched = "info";
+            tree-root-file = "flake.nix";
+            formatter.nixfmt = {
+              command = "nixfmt";
+              includes = [ "*.nix" ];
+            };
+            formatter.ruff-check = {
+              command = "ruff";
+              options = [
+                "check"
+                "--fix"
+              ];
+              includes = [ "*.py" ];
+              priority = 1;
+            };
+            formatter.ruff-format = {
+              command = "ruff";
+              options = [ "format" ];
+              includes = [ "*.py" ];
+              priority = 2;
+            };
+          };
+        }
+      );
     };
 }

@@ -27,6 +27,8 @@ A TOML file describes one project; see
   looked up with Meson's `dependency()`.
 - `[source]`: Bazel modules built from source.
 - `plugins`: translations for further rule kinds.
+- `[pch.<repo>]`: precompile the headers most sources of a library include
+  (`min_share`, `headers`, `exclude`). `-Db_pch=false` builds without it.
 - `exclude`, `forward_headers`, `extra_protos`: adjustments for the places
   where the installed libraries differ from Bazel's view.
 
