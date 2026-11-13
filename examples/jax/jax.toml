@@ -3,7 +3,7 @@
 name = "jaxlib"
 root = "//jaxlib:_jax"
 
-plugins = ["tablegen"]
+plugins = ["tablegen", "cc_embed_data", "python_extension"]
 
 # Names XLA's extensions give repositories that are also modules.
 [repo_aliases]
@@ -73,9 +73,6 @@ dependencies = ["eigen3"]
 [system.onednn_async]
 dependencies = ["cmake:dnnl:DNNL::dnnl"]
 
-[system.nanobind]
-dependencies = ["cmake:nanobind:nanobind-static"]
-
 [system.brotli]
 targets = { brotlidec = ["libbrotlidec"], brotlienc = ["libbrotlienc"] }
 
@@ -85,15 +82,19 @@ dependencies = ["libzstd"]
 [system.cpuinfo]
 dependencies = ["libcpuinfo"]
 
+[system.robin_map]
+dependencies = ["cmake:tsl-robin-map:tsl::robin_map"]
+
 # Python itself and its packages.
 [system.rules_python]
-dependencies = ["python3-embed"]
+dependencies = ["python3"]
 
 [system.ml_dtypes_py]
 dependencies = []
 
+# Only numpy's headers are used at build time.
 [system.pypi]
-dependencies = []
+dependencies = ["numpy"]
 
 # Built from source: not in nixpkgs, or tied to XLA's LLVM pin.
 [source]
@@ -107,3 +108,6 @@ mpitrampoline = {}
 riegeli = {}
 slinky = {}
 XNNPACK = {}
+# XLA shares one nanobind between all modules; nixpkgs ships it as sources
+# for CMake projects only.
+nanobind = {}

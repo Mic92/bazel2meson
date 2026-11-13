@@ -42,6 +42,8 @@ PASSIVE_KINDS = {
     "py_binary",
     "py_library",
     "bool_flag",
+    "copy_file",
+    "expand_template",
 }
 SOURCE_SUFFIXES = {".cc", ".c", ".cpp", ".S"}
 # Directory for headers that Bazel exposes under a different path than they have on disk.
@@ -107,7 +109,8 @@ class SystemRepo:
 
 @dataclass
 class Settings:
-    root: Label
+    # Targets to build; the first one names the project's own repository.
+    roots: list[Label]
     # repo name -> directory relative to the Meson project root
     repo_dirs: dict[str, str]
     system: dict[str, SystemRepo]
@@ -126,6 +129,10 @@ class Settings:
     revision: str = "0" * 40
     project_name: str = "project"
     version: str = "0"
+
+    @property
+    def root(self) -> Label:
+        return self.roots[0]
 
 
 class Emitter:
@@ -147,6 +154,18 @@ class Emitter:
             "genrule": lambda target: list(self.rs.attr(target, "outs")),
         }
         self.protoc_plugins: list[ProtocPlugin] = []
+        # Rule kinds compiled like cc_library.
+        self.cc_kinds: set[str] = set(CC_KINDS)
+        # Rule kinds that, as a root, become a loadable module. Such a module
+        # only holds its own sources; everything it depends on goes into one
+        # shared library next to it, as modules of one project share state.
+        # The value renders the module from its name and arguments.
+        self.module_kinds: dict[str, Callable[[Label, dict[str, Value]], Expr]] = {}
+        # Extra arguments for that shared library, e.g. where to install it.
+        self.common_library_args: dict[str, Value] = {}
+        # Executables built to run during the build: label -> Meson variable.
+        self.tools: dict[Label, str] = {}
+        self.tool_statements: list[str] = []
         # Include directories relative to the source root; Meson adds the
         # same path in the build tree for generated headers.
         self.include_dirs: set[str] = {".", VIRTUAL_INCLUDES}
@@ -167,9 +186,11 @@ class Emitter:
         if base is None or root is None:
             return None
         rel = PurePosixPath(label.pkg) / label.name
-        if not (root / rel).is_file():
+        path = str(PurePosixPath(base) / rel)
+        # Files written when generating count as sources too.
+        if not (root / rel).is_file() and path not in self.extra_files:
             return None
-        return str(PurePosixPath(base) / rel)
+        return path
 
     def directory(self, label: Label) -> str:
         return str(PurePosixPath(self.settings.repo_dirs[label.repo]) / label.pkg)
@@ -183,7 +204,7 @@ class Emitter:
         self.system_defines: set[str] = set()
         # Generated files other than meson.build, relative to the source root.
         self.extra_files: dict[str, str] = {}
-        stack = [self.settings.root]
+        stack = list(self.settings.roots)
         while stack:
             label = stack.pop()
             if label in self.targets or label in self.files:
@@ -231,18 +252,59 @@ class Emitter:
         return False
 
     def copied(self, label: Label) -> bool:
-        """Whether a copy_file rule in the package produces the file."""
+        """Whether the file is written when generating: the output of a
+        copy_file or expand_template rule in the package."""
         for other, target in self.ws.targets.items():
-            if (other.repo, other.pkg) != (label.repo, label.pkg) or target.kind != "copy_file":
+            if (other.repo, other.pkg) != (label.repo, label.pkg) or target.kind not in (
+                "copy_file",
+                "expand_template",
+            ):
                 continue
             if self.rs.attr(target, "out", "") != label.name:
                 continue
-            (src,) = self.rs.labels(target, "src")
-            root = self.ws.repo_root(label.repo)
+            (src,) = self.rs.labels(target, "src" if target.kind == "copy_file" else "template")
+            root = self.ws.repo_root(src.repo)
             assert root is not None
-            self.extra_files[f"{self.directory(label)}/{label.name}"] = (root / src.pkg / src.name).read_text()
+            text = (root / src.pkg / src.name).read_text()
+            if target.kind == "expand_template":
+                for old, new in self.rs.attr(target, "substitutions").items():
+                    text = text.replace(old, str(new))
+            self.extra_files[f"{self.directory(label)}/{label.name}"] = text
             return True
         return False
+
+    def tool(self, label: Label) -> Expr | None:
+        """An executable of the tree that a build step runs."""
+        if label in self.tools:
+            return var(self.tools[label])
+        target = self.ws.get(label)
+        if target is None or target.kind != "cc_binary":
+            self.problems["build tool is not a cc_binary"].add(str(label))
+            return None
+        srcs = [self.path(src) for src in self.rs.labels(target, "srcs")]
+        for dep in self.rs.labels(target, "deps"):
+            system = self.settings.system.get(dep.repo)
+            if system is None:
+                # Would need the libraries before the code they generate.
+                self.problems["build tool depends on libraries of the tree"].add(f"{label}: {dep}")
+                return None
+            self.system_deps.update(system.lookup(dep))
+        name = "tool_" + sanitize(f"{label.pkg}_{label.name}")
+        self.tools[label] = name
+        self.tool_statements.append(
+            assign(
+                name,
+                call(
+                    "executable",
+                    name,
+                    call("files", sorted(s for s in srcs if s)),
+                    include_directories=call("include_directories", var("include_dirs")),
+                    dependencies=var("deps"),
+                    native=True,
+                ),
+            )
+        )
+        return var(name)
 
     # -- protobuf -----------------------------------------------------------
 
@@ -395,8 +457,14 @@ class Emitter:
     def emit(self) -> dict[str, str]:
         self.collect()
         self.emit_protos()
-        sources: dict[str, list[str]] = defaultdict(list)
-        copts: dict[str, list[str]] = defaultdict(list)
+        # Compiled together: a repository, or a root that is a module.
+        sources: dict[str | Label, list[str]] = defaultdict(list)
+        copts: dict[str | Label, list[str]] = defaultdict(list)
+        modules = [
+            root
+            for root in self.settings.roots
+            if root in self.targets and self.targets[root].kind in self.module_kinds
+        ]
         defines: list[str] = []
         include_dirs = self.include_dirs
         include_dirs.update(self.proto_roots)
@@ -414,7 +482,7 @@ class Emitter:
             if target.kind in self.handlers:
                 self.handlers[target.kind](label, target)
                 continue
-            if target.kind not in CC_KINDS:
+            if target.kind not in self.cc_kinds:
                 if target.kind not in self.passive_kinds and not any(
                     target.kind in plugin.kinds for plugin in self.protoc_plugins
                 ):
@@ -422,12 +490,13 @@ class Emitter:
                 continue
             repo_dir = self.settings.repo_dirs[label.repo]
             include_dirs.add(repo_dir)
+            unit: str | Label = label if label in modules else label.repo
             for src in self.rs.labels(target, "srcs"):
                 if PurePosixPath(src.name).suffix not in SOURCE_SUFFIXES:
                     continue
                 path = self.path(src)
                 if path is not None:
-                    sources[label.repo].append(path)
+                    sources[unit].append(path)
             for stamp in self.rs.labels(target, "linkstamp"):
                 # Bazel compiles linkstamps at link time with the workspace
                 # status as defines; here the status is fixed when generating.
@@ -438,11 +507,11 @@ class Emitter:
                     '#define BUILD_SCM_STATUS "Distribution"\n'
                     f"#include {c_string(path or '')}\n"
                 )
-                sources[label.repo].append(wrapper)
+                sources[unit].append(wrapper)
             # Bazel splits each copt like a shell would.
-            add_unique(copts[label.repo], [t for c in self.rs.attr(target, "copts") for t in shlex.split(str(c))])
+            add_unique(copts[unit], [t for c in self.rs.attr(target, "copts") for t in shlex.split(str(c))])
             add_unique(defines, [str(d) for d in self.rs.attr(target, "defines")])
-            add_unique(copts[label.repo], [f"-D{d}" for d in self.rs.attr(target, "local_defines")])
+            add_unique(copts[unit], [f"-D{d}" for d in self.rs.attr(target, "local_defines")])
             for opt in self.rs.attr(target, "linkopts"):
                 expr = self.linkopt(label, str(opt))
                 if expr is not None and render(expr) not in map(render, linkopts):
@@ -496,11 +565,12 @@ class Emitter:
             assign("protoc_generators", protoc_generators),
             assign("grpc_protos", any(grpc for _, _, grpc in self.settings.extra_protos)),
             assign("system_deps", sorted(self.system_deps)),
+            assign("include_dirs", sorted(include_dirs)),
             template("setup.meson"),
             *self.templates.values(),
+            *self.tool_statements,
             *(statement(call("subdir", d)) for d in sorted(self.subdirs)),
             "",
-            assign("include_dirs", sorted(include_dirs)),
             assign("project_defines", ["-D" + d for d in [*defines, *sorted(self.system_defines)]]),
             assign("protos_name", f"{sanitize(project)}_protos"),
             template("libraries.meson"),
@@ -510,24 +580,24 @@ class Emitter:
         main = self.settings.root.repo
         # The project's own code goes by the project name.
         specs = {main if name == project else name: spec for name, spec in self.settings.pch.items()}
-        for name in sorted(set(specs) - set(sources)):
+        for name in sorted(set(specs) - {unit for unit in sources if isinstance(unit, str)}):
             self.problems["[pch] names a repository without sources"].add(name)
 
-        def compiled(repo: str) -> dict[str, Value]:
-            args = cxx_args(copts[repo])
+        def compiled(unit: str | Label) -> dict[str, Value]:
+            args = cxx_args(copts[unit])
             pch: dict[str, Value] = {}
-            spec = specs.get(repo)
-            text = pch_header(spec, scanner, sources[repo]) if spec else None
+            spec = specs.get(unit) if isinstance(unit, str) else None
+            text = pch_header(spec, scanner, sources[unit]) if spec else None
             if text:
                 # Meson wants each precompiled header in a directory of its own.
-                path = f"{PCH}/{sanitize(repo or project)}/pch.hh"
+                path = f"{PCH}/{sanitize(str(unit) or project)}/pch.hh"
                 out[path] = text
                 pch["cpp_pch"] = path
             return {
                 **pch,
                 "sources": [
-                    call("files", sorted(set(sources[repo]))),
-                    *self.generated_sources[repo],
+                    call("files", sorted(set(sources[unit]))),
+                    *(self.generated_sources[unit] if isinstance(unit, str) else []),
                     var("generated_headers"),
                 ],
                 "cpp_args": args,
@@ -536,21 +606,45 @@ class Emitter:
                 "dependencies": [var("deps"), var("proto_dep")],
             }
 
-        for repo in sorted((set(sources) | set(self.generated_sources)) - {main}):
-            root.append(extend("libs", call("static_library", sanitize(repo), **compiled(repo))))
-        root += [
-            statement(
-                call(
-                    "executable",
-                    project,
-                    **compiled(main),
-                    link_args=linkopts,
-                    link_whole=var("libs"),
-                    install=True,
+        repos = {unit for unit in sources if isinstance(unit, str)} | set(self.generated_sources)
+        if modules:
+            # Everything the modules share, in one library next to them.
+            for repo in sorted(repos):
+                root.append(extend("libs", call("static_library", sanitize(repo or project), **compiled(repo))))
+            root.append(
+                assign(
+                    "common",
+                    call(
+                        "shared_library",
+                        f"{sanitize(project)}_common",
+                        link_whole=var("libs"),
+                        dependencies=var("deps"),
+                        link_args=linkopts,
+                        install=True,
+                        **self.common_library_args,
+                    ),
                 )
-            ),
-            "",
-        ]
+            )
+            for label in modules:
+                args = {**compiled(label), "link_with": var("common")}
+                args["dependencies"] = var("deps")
+                root.append(statement(self.module_kinds[self.targets[label].kind](label, args)))
+        else:
+            for repo in sorted(repos - {main}):
+                root.append(extend("libs", call("static_library", sanitize(repo), **compiled(repo))))
+            root.append(
+                statement(
+                    call(
+                        "executable",
+                        project,
+                        **compiled(main),
+                        link_args=linkopts,
+                        link_whole=var("libs"),
+                        install=True,
+                    )
+                )
+            )
+        root.append("")
         out["meson.build"] = "\n".join(root)
         return out
 

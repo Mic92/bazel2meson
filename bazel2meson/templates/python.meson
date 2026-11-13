@@ -1,0 +1,2 @@
+# The Python that extension modules are built for.
+py = import('python').find_installation(pure: false)

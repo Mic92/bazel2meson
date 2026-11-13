@@ -24,9 +24,7 @@
           inherit bazel2meson;
           default = bazel2meson;
           envoy = pkgs.callPackage ./examples/envoy/package.nix { inherit bazel2meson; };
-          jax-modules = pkgs.linkFarm "jax-modules" (
-            import ./examples/jax/modules.nix { inherit (pkgs) callPackage fetchFromGitHub; }
-          );
+          jaxlib = pkgs.callPackage ./examples/jax/package.nix { inherit bazel2meson; };
         }
       );
 

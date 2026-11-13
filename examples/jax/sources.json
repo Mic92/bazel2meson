@@ -118,6 +118,24 @@
     ],
     "version": "25efb0f7a4cd00ed82bafb8b1a6285fc50d297ed"
   },
+  "nanobind": {
+    "hash": "sha256-OyStIM4EKbGlARUe6u/3I0UbnpuBKIe3+cuFdfpefsc=",
+    "overlay": [
+      {
+        "file": "third_party/nanobind/nanobind.BUILD",
+        "path": "BUILD.bazel",
+        "repo": "xla"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "nanobind-da42c8a5890eff09e672e7cfd953627655aa3e28",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/wjakob/nanobind/archive/da42c8a5890eff09e672e7cfd953627655aa3e28.tar.gz",
+      "https://github.com/wjakob/nanobind/archive/da42c8a5890eff09e672e7cfd953627655aa3e28.tar.gz"
+    ],
+    "version": "da42c8a5890eff09e672e7cfd953627655aa3e28"
+  },
   "riegeli": {
     "hash": "sha256-9jM39j95S6ncfdKBsgrz0Dbf4MGlpLe43CCzn34yO5c=",
     "overlay": [],

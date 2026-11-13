@@ -38,8 +38,9 @@ def gentbl_cc_library(em: Emitter, label: Label, target: Target) -> None:
     package = PurePosixPath(em.directory(label))
     pairs = tbl_outs(em, target)
     (tool,) = em.rs.labels(target, "tblgen")
-    if tool.repo not in em.settings.system:
-        em.problems["gentbl_cc_library: TableGen tool built in the tree"].add(f"{label}: {tool}")
+    # LLVM's own generators are installed; a project's are built first.
+    program = var("tblgen")[tool.name] if tool.repo in em.settings.system else em.tool(tool)
+    if program is None:
         return
     (td_file,) = em.rs.labels(target, "td_file")
     td_path = em.path(td_file)
@@ -63,7 +64,7 @@ def gentbl_cc_library(em: Emitter, label: Label, target: Target) -> None:
                     output=path.name,
                     depfile=path.name + ".d",
                     command=[
-                        var("tblgen")[tool.name],
+                        program,
                         *opts,
                         *includes,
                         var("tblgen_includes"),

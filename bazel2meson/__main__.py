@@ -47,7 +47,7 @@ def main() -> int:
     )
     resolver = Resolver(ws, config)
     settings = Settings(
-        root=ws.label(raw["root"], "", ""),
+        roots=[ws.label(item, "", "") for item in raw.get("roots", [raw.get("root")])],
         repo_dirs=repo_dirs,
         system={name: SystemRepo(**spec) for name, spec in raw.get("system", {}).items()},
         ignore=set(raw.get("ignore", [])),
