@@ -19,8 +19,9 @@ upstream release means bumping the pin and re-running the generator.
   [perf_data_converter](examples/perf_data_converter) and
   [verible](examples/verible) (its formatter): build and run; every
   dependency is an installed library. `nix build .#bant`
-- [Envoy](examples/envoy): the test bed; compiles, not linked yet.
-- [jaxlib](examples/jax): generates, not compiled yet.
+- [Envoy](examples/envoy): builds and serves requests. Two extensions
+  are left out so far, see `envoy.toml`.
+- [jaxlib](examples/jax): most of the tree compiles, not linked yet.
 
 ## Configuration
 

@@ -132,6 +132,12 @@ stdenv.mkDerivation {
     mv $out/bin/envoy-static $out/bin/envoy
   '';
 
+  doInstallCheck = true;
+  installCheckPhase = ''
+    $out/bin/envoy --version | grep -F ${version}
+    $out/bin/envoy --mode validate -c ${./smoke-test.yaml}
+  '';
+
   passthru = { inherit modules; };
 
   meta = {

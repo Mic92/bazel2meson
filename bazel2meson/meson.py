@@ -46,6 +46,9 @@ PASSIVE_KINDS = {
     "expand_template",
 }
 SOURCE_SUFFIXES = {".cc", ".c", ".cpp", ".S"}
+# What Bazel's compilation modes add. Meson's build types stay out of it, so
+# that the result does not depend on how a distribution calls Meson.
+MODE_FLAGS = {"opt": ["-O2", "-DNDEBUG"], "dbg": ["-g"]}
 HEADER_SUFFIXES = {".h", ".hh", ".hpp", ".inc"}
 # Directory for headers that Bazel exposes under a different path than they have on disk.
 VIRTUAL_INCLUDES = "bazel2meson-includes"
@@ -694,7 +697,7 @@ class Emitter:
                         "cpp_std=c++20",
                         "c_std=gnu11",
                         "warning_level=0",
-                        "buildtype=release",
+                        "buildtype=plain",
                         "b_staticpic=true",
                         "default_library=static",
                     ],
@@ -712,7 +715,10 @@ class Emitter:
             statement(
                 call(
                     "add_project_arguments",
-                    ["-D" + d for d in [*defines, *sorted(self.system_defines)]],
+                    [
+                        *MODE_FLAGS.get(self.rs.config.values.get("compilation_mode", ""), []),
+                        *("-D" + d for d in [*defines, *sorted(self.system_defines)]),
+                    ],
                     language=["c", "cpp"],
                 )
             ),
