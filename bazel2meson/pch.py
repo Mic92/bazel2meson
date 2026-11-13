@@ -1,0 +1,125 @@
+"""Choose the headers of a library's precompiled header.
+
+Most of a C++ compile in a large project is spent parsing the same headers
+again for every source file. The headers worth precompiling are found by
+following the #include lines of a library's sources and counting how many
+sources reach each header.
+"""
+
+from __future__ import annotations
+
+import re
+from collections import Counter
+from dataclasses import dataclass, field
+from pathlib import Path, PurePosixPath
+
+DIRECTIVE = re.compile(r"^[ \t]*#[ \t]*(\w+)[ \t]*(.*)$", re.MULTILINE)
+INCLUDE = re.compile(r'([<"])([^>"]+)[>"]')
+CXX_SUFFIXES = {".cc", ".cpp", ".cxx"}
+
+
+@dataclass
+class PchSpec:
+    """The `[pch.NAME]` table of the configuration."""
+
+    # Headers to precompile, as they are written after #include.
+    headers: list[str] = field(default_factory=list)
+    # Also precompile every header that at least this share of the library's
+    # C++ sources includes, directly or through other headers.
+    min_share: float | None = None
+    # Headers to keep out, by the same spelling or by path in the tree.
+    exclude: list[str] = field(default_factory=list)
+
+
+class Scanner:
+    def __init__(self, root: Path, include_dirs: list[str]) -> None:
+        self.root = root
+        self.include_dirs = include_dirs
+        self.resolved: dict[tuple[str, str], str | None] = {}
+        self.direct: dict[str, list[str]] = {}
+        self.closures: dict[str, frozenset[str]] = {}
+
+    def resolve(self, name: str, includer: str, quoted: bool) -> str | None:
+        """Path of an included header in the tree, if it is there."""
+        if quoted:
+            local = (PurePosixPath(includer).parent / name).as_posix()
+            if (self.root / local).is_file():
+                return local
+        key = ("", name)
+        if key not in self.resolved:
+            self.resolved[key] = next(
+                ((PurePosixPath(d) / name).as_posix() for d in self.include_dirs if (self.root / d / name).is_file()),
+                None,
+            )
+        return self.resolved[key]
+
+    def includes(self, path: str) -> list[str]:
+        """Headers a file always includes: tree paths, or `<name>` / `"name"`
+        for headers outside the tree (system libraries, generated code)."""
+        if path in self.direct:
+            return self.direct[path]
+        try:
+            text = (self.root / path).read_text(errors="replace")
+        except OSError:
+            text = ""
+        found: list[str] = []
+        depth = 0
+        # An include guard wraps the whole file without making it conditional.
+        guard = None
+        first = True
+        for match in DIRECTIVE.finditer(text):
+            directive, rest = match.groups()
+            if directive in ("if", "ifdef", "ifndef"):
+                if first and directive == "ifndef" and path.rsplit(".", 1)[-1] not in ("cc", "cpp", "cxx", "c"):
+                    guard = depth
+                depth += 1
+            elif directive == "endif":
+                depth -= 1
+            elif directive == "include" and depth == (0 if guard is None else 1):
+                inc = INCLUDE.match(rest)
+                if inc:
+                    quoted = inc.group(1) == '"'
+                    tree = self.resolve(inc.group(2), path, quoted)
+                    found.append(tree or (f'"{inc.group(2)}"' if quoted else f"<{inc.group(2)}>"))
+            first = False
+        self.direct[path] = found
+        return found
+
+    def closure(self, path: str) -> frozenset[str]:
+        if path in self.closures:
+            return self.closures[path]
+        seen: set[str] = set()
+        stack = [path]
+        while stack:
+            for inc in self.includes(stack.pop()):
+                if inc not in seen:
+                    seen.add(inc)
+                    if inc[0] not in '<"':
+                        stack.append(inc)
+        self.closures[path] = frozenset(seen)
+        return self.closures[path]
+
+
+def include_line(header: str) -> str:
+    return f"#include {header}" if header[0] in '<"' else f'#include "{header}"'
+
+
+def header(spec: PchSpec, scanner: Scanner, sources: list[str]) -> str | None:
+    """Text of the precompiled header for a library, None if it would be empty."""
+    chosen = [h if h[0] in '<"' else f'"{h}"' for h in spec.headers]
+    if spec.min_share is not None:
+        cxx = [s for s in sources if PurePosixPath(s).suffix in CXX_SUFFIXES]
+        counts: Counter[str] = Counter()
+        for source in cxx:
+            counts.update(scanner.closure(source))
+        excluded = set(spec.exclude)
+        for name, count in sorted(counts.items(), key=lambda item: (-item[1], item[0])):
+            if count < spec.min_share * len(cxx):
+                break
+            if name not in excluded and name.strip('<>"') not in excluded:
+                chosen.append(name)
+    if not chosen:
+        return None
+    lines = ["// Generated by bazel2meson: headers most sources of this library include.", "#pragma once"]
+    lines += [include_line(h) for h in dict.fromkeys(chosen)]
+    return "\n".join(lines) + "\n"

@@ -1,6 +1,6 @@
 {
   lib,
-  stdenv,
+  llvmPackages_latest,
   callPackage,
   fetchFromGitHub,
   meson,
@@ -53,6 +53,9 @@ let
     hash = "sha256-Ni+vX3rqo8s7000IPjzg2B7smtFm3SQF501tdRZAv4M=";
   };
 
+  # Upstream develops with Clang, and it compiles this code about twice as
+  # fast as GCC. On Linux this is Clang with libstdc++, matching the libraries.
+  inherit (llvmPackages_latest) stdenv;
 in
 stdenv.mkDerivation {
   pname = "envoy";

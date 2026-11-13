@@ -31,13 +31,16 @@
       );
 
       devShells = forAllSystems (pkgs: {
-        default = pkgs.mkShell {
-          inputsFrom = [ self.packages.${pkgs.stdenv.hostPlatform.system}.envoy ];
-          packages = [
-            pkgs.ruff
-            pkgs.ty
-          ];
-        };
+        # The compiler of the Envoy example, to build its generated tree by hand.
+        default =
+          (pkgs.mkShell.override { inherit (self.packages.${pkgs.stdenv.hostPlatform.system}.envoy) stdenv; })
+            {
+              inputsFrom = [ self.packages.${pkgs.stdenv.hostPlatform.system}.envoy ];
+              packages = [
+                pkgs.ruff
+                pkgs.ty
+              ];
+            };
       });
 
       formatter = forAllSystems (pkgs: pkgs.nixfmt-tree);

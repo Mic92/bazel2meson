@@ -11,6 +11,8 @@ from importlib import resources
 from pathlib import Path, PurePosixPath
 
 from .graph import Resolver
+from .pch import PchSpec, Scanner
+from .pch import header as pch_header
 from .starlark import Label, Target, Workspace
 from .syntax import (
     BUILD_ROOT,
@@ -45,6 +47,7 @@ SOURCE_SUFFIXES = {".cc", ".c", ".cpp", ".S"}
 # Directory for headers that Bazel exposes under a different path than they have on disk.
 VIRTUAL_INCLUDES = "bazel2meson-includes"
 SCRIPTS = "bazel2meson-scripts"
+PCH = "bazel2meson-pch"
 EDGES = (
     "deps",
     "actual",
@@ -117,6 +120,8 @@ class Settings:
     extra_protos: list[tuple[str, str, bool]] = field(default_factory=list)
     # Include path used by the sources -> header of a system library.
     forward_headers: dict[str, str] = field(default_factory=dict)
+    # Library (repository name) -> how to choose its precompiled header.
+    pch: dict[str, PchSpec] = field(default_factory=dict)
     # Source revision reported by the binary.
     revision: str = "0" * 40
     project_name: str = "project"
@@ -501,9 +506,25 @@ class Emitter:
             template("libraries.meson"),
         ]
 
+        scanner = Scanner(self.ws.repo_root(self.settings.root.repo), sorted(include_dirs))
+        main = self.settings.root.repo
+        # The project's own code goes by the project name.
+        specs = {main if name == project else name: spec for name, spec in self.settings.pch.items()}
+        for name in sorted(set(specs) - set(sources)):
+            self.problems["[pch] names a repository without sources"].add(name)
+
         def compiled(repo: str) -> dict[str, Value]:
             args = cxx_args(copts[repo])
+            pch: dict[str, Value] = {}
+            spec = specs.get(repo)
+            text = pch_header(spec, scanner, sources[repo]) if spec else None
+            if text:
+                # Meson wants each precompiled header in a directory of its own.
+                path = f"{PCH}/{sanitize(repo or project)}/pch.hh"
+                out[path] = text
+                pch["cpp_pch"] = path
             return {
+                **pch,
                 "sources": [
                     call("files", sorted(set(sources[repo]))),
                     *self.generated_sources[repo],
@@ -515,7 +536,6 @@ class Emitter:
                 "dependencies": [var("deps"), var("proto_dep")],
             }
 
-        main = self.settings.root.repo
         for repo in sorted((set(sources) | set(self.generated_sources)) - {main}):
             root.append(extend("libs", call("static_library", sanitize(repo), **compiled(repo))))
         root += [

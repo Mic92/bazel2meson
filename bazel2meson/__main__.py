@@ -10,6 +10,7 @@ from pathlib import Path
 from . import plugins, project
 from .graph import Config, Resolver
 from .meson import Emitter, Settings, SystemRepo, format_problems, write
+from .pch import PchSpec
 
 
 def main() -> int:
@@ -57,6 +58,7 @@ def main() -> int:
             for file in group["files"]
         ],
         forward_headers=raw.get("forward_headers", {}),
+        pch={name: PchSpec(**spec) for name, spec in raw.get("pch", {}).items()},
         revision=args.revision,
         project_name=raw.get("name", args.config.stem),
         version=args.version,
