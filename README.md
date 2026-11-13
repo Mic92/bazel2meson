@@ -12,27 +12,6 @@ upstream release means bumping the pin and re-running the generator.
 **Status: work in progress.** [Envoy](examples/envoy) is the first project
 and the test bed; its build compiles but has not linked yet.
 
-## How it works
-
-- `bazel2meson/starlark.py` executes `BUILD` and `.bzl` files (Starlark is
-  nearly Python). The project's own macros run for real; rules from
-  repositories that are absent on disk are recorded as plain targets.
-- `bazel2meson/modules.py` reads `MODULE.bazel` for repository names.
-- `bazel2meson/graph.py` resolves `select()` for one configuration
-  (`config_setting`, flags, platform constraints) and walks the dependency
-  graph from the root target.
-- `bazel2meson/meson.py` writes the `meson.build` files: one `custom_target`
-  per `.proto` and `genrule`, one static library per source repository, and
-  the executable. `bazel2meson/syntax.py` renders Python values as Meson
-  source, and `bazel2meson/templates/` holds the hand-written Meson code.
-- `bazel2meson/lock.py` pins the Bazel modules that are built from source in
-  a `sources.json`, using the versions and hashes from the project's
-  `MODULE.bazel.lock` and the registry.
-
-Only Bazel's loading phase is emulated, so rule implementations do not run.
-`cc_library`, `cc_binary`, `proto_library`, `genrule`, `copy_file` and
-linkstamps are built in. Other rule kinds need a plugin.
-
 ## Configuration
 
 A TOML file describes one project; see
@@ -49,13 +28,17 @@ A TOML file describes one project; see
 
 ## Plugins
 
+Only Bazel's loading phase is emulated, so rule implementations do not run.
+`cc_library`, `cc_binary`, `proto_library`, `genrule`, `copy_file` and
+linkstamps are built in. Other rule kinds need a plugin.
+
 A plugin is a Python module with a `register(emitter)` function. It can add
 handlers for rule kinds, mark kinds as needing no output, or add protoc code
 generators. `plugins` in the configuration lists modules from
 `bazel2meson/plugins/` by name, or `.py` files next to the configuration.
 
-Included: `protoc_gen_validate` and `cel_cpp` (ANTLR parser, embedded
-descriptor sets).
+Included: `protoc_gen_validate`, `cel_cpp` (ANTLR parser, embedded
+descriptor sets) and `tablegen` (LLVM TableGen).
 
 ## Usage
 
