@@ -14,6 +14,10 @@ class Module:
     mapping: dict[str, str] = field(default_factory=dict)
     # use_extension() variable name -> tag name -> keyword arguments of each call.
     tags: dict[str, dict[str, list[dict[str, Any]]]] = field(default_factory=dict)
+    # (.bzl label, extension name) of every use_extension().
+    extensions: list[tuple[str, str]] = field(default_factory=list)
+    # module name -> arguments of its archive_override().
+    archives: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 class _Extension:
@@ -39,7 +43,11 @@ def parse(path: Path) -> Module:
             module.mapping[repo_name or name] = name
 
     def use_extension(bzl: str, name: str, **_: Any) -> _Extension:
+        module.extensions.append((bzl, name))
         return _Extension(module.tags.setdefault(name, {}))
+
+    def archive_override(module_name: str, **kwargs: Any) -> None:
+        module.archives[module_name] = kwargs
 
     def ignore(*_: Any, **__: Any) -> None:
         return None
@@ -58,6 +66,7 @@ def parse(path: Path) -> Module:
         "override_repo", "use_repo_rule", "include", "flag_alias",
     ):  # fmt: skip
         env[name] = ignore
+    env["archive_override"] = archive_override
     env["use_repo_rule"] = lambda *_, **__: ignore
     exec(compile(path.read_text(), str(path), "exec"), env)  # noqa: S102
     return module

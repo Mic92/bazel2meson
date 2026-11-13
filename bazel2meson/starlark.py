@@ -116,6 +116,18 @@ class Stub:
     def __radd__(self, other: Any) -> Any:
         return other
 
+    def _absorb(self, other: Any) -> Stub:
+        return self
+
+    def _unordered(self, other: Any) -> bool:
+        return False
+
+    __lt__ = __le__ = __gt__ = __ge__ = _unordered
+
+    # Values computed from something unknown stay unknown.
+    __sub__ = __rsub__ = __mul__ = __rmul__ = _absorb
+    __floordiv__ = __rfloordiv__ = __mod__ = __rmod__ = _absorb
+
 
 _TYPE_NAMES = {
     str: "string",
@@ -169,6 +181,21 @@ class _DictViews(ast.NodeTransformer):
 
 
 @dataclass
+class Repository:
+    """A repository declared by a module extension."""
+
+    kind: str
+    attrs: dict[str, Any]
+    # Repository the declaring extension lives in; its labels are relative to it.
+    origin: str
+
+
+class ModuleExtension:
+    def __init__(self, implementation: Any = None, **_: Any) -> None:
+        self.implementation = implementation
+
+
+@dataclass
 class Repo:
     name: str
     root: Path | None
@@ -189,6 +216,9 @@ class Workspace:
     redirects: dict[str, str] = field(default_factory=dict)
 
     targets: dict[Label, Target] = field(default_factory=dict)
+    # Filled by run_extension().
+    repositories: dict[str, Repository] = field(default_factory=dict)
+    repository_origin: str | None = None
     _modules: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
     _packages: set[tuple[str, str]] = field(default_factory=set)
     _ctx: list[tuple[str, str]] = field(default_factory=list)
@@ -424,6 +454,8 @@ class Workspace:
             env[name] = Stub(name)
         # `rule()` results are called from BUILD files/macros: record them.
         env["rule"] = lambda *a, **k: ws.recorder("custom_rule")
+        env["repository_rule"] = lambda *a, **k: ws.recorder("custom_rule")
+        env["module_extension"] = ModuleExtension
         if is_build:
             native = env["native"]
             for name in NATIVE_RULES:
@@ -487,6 +519,21 @@ class Workspace:
 
     # -- rule recording ---------------------------------------------------
 
+    def run_extension(self, bzl: str, name: str) -> bool:
+        """Evaluate a module extension, collecting the repositories it declares."""
+        label = self.label(bzl, "", "")
+        extension = self.load_bzl(label).get(name)
+        if not isinstance(extension, ModuleExtension) or extension.implementation is None:
+            return False
+        self._ctx.append((label.repo, label.pkg))
+        self.repository_origin = label.repo
+        try:
+            extension.implementation(Stub("module_ctx"))
+        finally:
+            self.repository_origin = None
+            self._ctx.pop()
+        return True
+
     def recorder(self, kind: str) -> Recorder:
         return Recorder(self, kind)
 
@@ -502,6 +549,11 @@ class Recorder:
     def __call__(self, *args: Any, **attrs: Any) -> Any:
         ws = self._ws
         name = attrs.get("name")
+        if ws.repository_origin is not None:
+            # Called from a module extension: this declares a repository.
+            if isinstance(name, str):
+                ws.repositories.setdefault(name, Repository(self._kind, attrs, ws.repository_origin))
+            return None
         # Symbols loaded from files we cannot read may be helper functions
         # or structs instead of rules; those are not called like a rule.
         if args or not isinstance(name, str) or not ws._ctx:

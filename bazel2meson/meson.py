@@ -5,25 +5,83 @@ from __future__ import annotations
 import re
 import shlex
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from importlib import resources
 from pathlib import Path, PurePosixPath
 
 from .graph import Resolver
 from .starlark import Label, Target, Workspace
+from .syntax import (
+    BUILD_ROOT,
+    CURRENT_SOURCE_DIR,
+    SOURCE_ROOT,
+    Expr,
+    Value,
+    assign,
+    call,
+    extend,
+    render,
+    sanitize,
+    statement,
+    var,
+)
 
 CC_KINDS = {"cc_library", "cc_binary"}
-PGV_KINDS = {"pgv_cc_proto_library", "cc_proto_gen_validate"}
-PROTO_CC_KINDS = {"cc_proto_library", "cc_grpc_library"} | PGV_KINDS
+# Rule kinds that need no output of their own: their inputs are reached
+# through the dependency edges and handled there.
+PASSIVE_KINDS = {
+    "proto_library",
+    "cc_proto_library",
+    "cc_grpc_library",
+    "alias",
+    "label_flag",
+    "filegroup",
+    "py_binary",
+    "py_library",
+    "bool_flag",
+}
 SOURCE_SUFFIXES = {".cc", ".c", ".cpp", ".S"}
-EDGES = ("deps", "actual", "srcs", "hdrs", "malloc", "implementation_deps", "textual_hdrs", "cc_deps", "tools")
+# Directory for headers that Bazel exposes under a different path than they have on disk.
+VIRTUAL_INCLUDES = "bazel2meson-includes"
+SCRIPTS = "bazel2meson-scripts"
+EDGES = (
+    "deps",
+    "actual",
+    "srcs",
+    "hdrs",
+    "malloc",
+    "implementation_deps",
+    "textual_hdrs",
+    "cc_deps",
+    "tools",
+    "linkstamp",
+)
+
+
+@dataclass
+class ProtocPlugin:
+    """An extra protoc code generator, applied to the protos certain rules depend on."""
+
+    # protoc-gen-NAME, also the prefix of the --NAME_out option.
+    name: str
+    # Rule kinds whose deps are the proto_library targets to run on.
+    kinds: set[str]
+    # Suffixes of the files generated per .proto, sources before headers.
+    suffixes: tuple[str, str]
+    # Parameters in front of the output directory in --NAME_out.
+    options: str = ""
 
 
 @dataclass
 class SystemRepo:
     """An external repository satisfied by an installed library."""
 
-    # dependency() names used for every target of the repository; a "lib:"
-    # prefix looks for a plain library that ships no pkg-config/CMake file ...
+    # dependency() names used for every target of the repository. Prefixes:
+    #   lib:NAME            plain library without pkg-config/CMake file
+    #   includes:NAME       only the include directories of dependency(NAME)
+    #   cmake:PKG:TARGET    CMake package PKG, imported target TARGET
+    # ...
     dependencies: list[str] = field(default_factory=list)
     # ... unless the target is listed here ...
     targets: dict[str, list[str]] = field(default_factory=dict)
@@ -31,6 +89,8 @@ class SystemRepo:
     template: str | None = None
     # Template results that do not exist are skipped instead of failing.
     optional: bool = False
+    # Preprocessor defines the Bazel build of the library exports to its users.
+    defines: list[str] = field(default_factory=list)
 
     def lookup(self, label: Label) -> list[str]:
         for key in (f"{label.pkg}:{label.name}", label.name):
@@ -52,22 +112,15 @@ class Settings:
     ignore: set[str] = field(default_factory=set)
     # Individual targets that are dropped from the build.
     exclude: set[str] = field(default_factory=set)
-    project_name: str = "envoy"
+    # Protos compiled without a Bazel target describing them: (import root,
+    # file relative to it, whether to also generate gRPC service stubs).
+    extra_protos: list[tuple[str, str, bool]] = field(default_factory=list)
+    # Include path used by the sources -> header of a system library.
+    forward_headers: dict[str, str] = field(default_factory=dict)
+    # Source revision reported by the binary.
+    revision: str = "0" * 40
+    project_name: str = "project"
     version: str = "0"
-
-
-def quote(text: str) -> str:
-    return "'" + text.replace("\\", "\\\\").replace("'", "\\'") + "'"
-
-
-def array(items: list[str], indent: str = "  ") -> str:
-    if not items:
-        return "[]"
-    return "[\n" + "".join(f"{indent}{quote(i)},\n" for i in items) + indent[:-2] + "]"
-
-
-def ident(text: str) -> str:
-    return re.sub(r"[^A-Za-z0-9_]", "_", text)
 
 
 class Emitter:
@@ -76,9 +129,26 @@ class Emitter:
         self.rs = resolver
         self.settings = settings
         self.problems: dict[str, set[str]] = defaultdict(set)
-        # Meson code that has to live in a sub-directory so its outputs land
+        # Meson statements that have to live in a sub-directory so its outputs land
         # at the path C++ includes them from.
         self.subdirs: dict[str, list[str]] = defaultdict(list)
+        # Extension points for plugins: translations for further rule kinds,
+        # kinds to skip, and protoc code generators.
+        self.handlers: dict[str, Callable[[Label, Target], None]] = {"genrule": self.emit_genrule}
+        self.passive_kinds: set[str] = set(PASSIVE_KINDS)
+        # Rule kind -> names of the files a target of that kind generates,
+        # for rules whose outputs other targets refer to by file name.
+        self.outputs: dict[str, Callable[[Target], list[str]]] = {
+            "genrule": lambda target: list(self.rs.attr(target, "outs")),
+        }
+        self.protoc_plugins: list[ProtocPlugin] = []
+        # Include directories relative to the source root; Meson adds the
+        # same path in the build tree for generated headers.
+        self.include_dirs: set[str] = {".", VIRTUAL_INCLUDES}
+        # Hand-written Meson code for the top-level file, by template name.
+        self.templates: dict[str, str] = {}
+        # Generated .cc files, by owning repository.
+        self.generated_sources: dict[str, list[Expr]] = defaultdict(list)
 
     # -- paths --------------------------------------------------------------
 
@@ -105,6 +175,9 @@ class Emitter:
         self.targets: dict[Label, Target] = {}
         self.files: set[Label] = set()
         self.system_deps: set[str] = set()
+        self.system_defines: set[str] = set()
+        # Generated files other than meson.build, relative to the source root.
+        self.extra_files: dict[str, str] = {}
         stack = [self.settings.root]
         while stack:
             label = stack.pop()
@@ -115,13 +188,14 @@ class Emitter:
             system = self.settings.system.get(label.repo)
             if system is not None:
                 self.system_deps.update(system.lookup(label))
+                self.system_defines.update(system.defines)
                 continue
             if self.repo_dir(label.repo) is None:
                 self.problems["repository without sources"].add(label.repo)
                 continue
             target = self.ws.get(label)
             if target is None:
-                if self.path(label) is None:
+                if self.path(label) is None and not self.copied(label) and not self.generated(label):
                     self.problems["label is neither a target nor a file"].add(str(label))
                 self.files.add(label)
                 continue
@@ -129,60 +203,114 @@ class Emitter:
             for edge in EDGES:
                 stack.extend(self.rs.labels(target, edge))
 
+    def linkopt(self, label: Label, opt: str) -> Value | None:
+        """A linker option, None to drop it."""
+        if opt.startswith("-fuse-ld"):
+            return None
+        match = re.search(r"\$\(location ([^)]+)\)", opt)
+        if match is None:
+            return opt
+        path = self.path(self.ws.label(match.group(1), label.repo, label.pkg))
+        if path is None:
+            # Produced by a rule reading Bazel's workspace status (build id).
+            return None
+        located = opt[: match.start()] + SOURCE_ROOT / path
+        return located + opt[match.end() :] if opt[match.end() :] else located
+
+    def generated(self, label: Label) -> bool:
+        """Whether a rule in the package declares the file as output."""
+        for other, target in self.ws.targets.items():
+            outputs = self.outputs.get(target.kind)
+            if outputs and (other.repo, other.pkg) == (label.repo, label.pkg) and label.name in outputs(target):
+                return True
+        return False
+
+    def copied(self, label: Label) -> bool:
+        """Whether a copy_file rule in the package produces the file."""
+        for other, target in self.ws.targets.items():
+            if (other.repo, other.pkg) != (label.repo, label.pkg) or target.kind != "copy_file":
+                continue
+            if self.rs.attr(target, "out", "") != label.name:
+                continue
+            (src,) = self.rs.labels(target, "src")
+            root = self.ws.repo_root(label.repo)
+            assert root is not None
+            self.extra_files[f"{self.directory(label)}/{label.name}"] = (root / src.pkg / src.name).read_text()
+            return True
+        return False
+
     # -- protobuf -----------------------------------------------------------
 
+    def protoc_target(self, root: str, path: str, generators: list[tuple[str, str, tuple[str, str]]]) -> None:
+        """Run protoc on one file.
+
+        root is the directory imports are relative to; generated code mirrors
+        it in the build tree. generators are (name, options, suffixes) of the
+        code generators to run besides C++.
+        """
+        file = PurePosixPath(path)
+        stem = file.name.removesuffix(".proto")
+        outputs = [f"{stem}.pb.cc", f"{stem}.pb.h"]
+        args: list[Value] = ["--cpp_out=" + BUILD_ROOT / root]
+        for name, options, suffixes in generators:
+            outputs += [stem + suffix for suffix in suffixes]
+            args.append(
+                f"--{name}_out={options}:" + BUILD_ROOT / root if options else f"--{name}_out=" + BUILD_ROOT / root
+            )
+        target = var("proto_" + sanitize(path.removesuffix(".proto")))
+        # A package may hold protos in sub-directories without BUILD files.
+        self.subdirs[str(file.parent)] += [
+            assign(
+                target.code,
+                call(
+                    "custom_target",
+                    input=file.name,
+                    output=outputs,
+                    # protoc wants the input spelled the way the -I roots are: absolute.
+                    command=[var("protoc"), var("proto_args"), *args, CURRENT_SOURCE_DIR / file.name],
+                    depend_files=var("proto_inputs"),
+                ),
+            ),
+            extend("proto_sources", target),
+            extend("proto_headers", [target[i] for i in range(1, len(outputs), 2)]),
+            "",
+        ]
+        self.proto_count += 1
+
     def emit_protos(self) -> list[str]:
-        validated: set[Label] = set()
+        selected: dict[str, set[Label]] = defaultdict(set)
         for target in self.targets.values():
-            if target.kind in PGV_KINDS:
-                validated.update(self.rs.labels(target, "deps"))
+            for plugin in self.protoc_plugins:
+                if target.kind in plugin.kinds:
+                    selected[plugin.name].update(self.rs.labels(target, "deps"))
 
         roots: set[str] = set()
-        count = 0
+        self.proto_count = 0
         for label, target in sorted(self.targets.items()):
             if target.kind != "proto_library":
                 continue
             if target.attrs.get("import_prefix"):
                 self.problems["proto_library.import_prefix is not handled"].add(str(label))
-            # Directory the .proto files are imported relative to; generated
-            # code mirrors it in the build tree.
-            repo_dir = self.settings.repo_dirs[label.repo]
+            root = self.settings.repo_dirs[label.repo]
             strip = self.rs.attr(target, "strip_import_prefix", "")
             if strip.startswith("/"):
-                repo_dir = str(PurePosixPath(repo_dir) / strip.lstrip("/"))
+                root = str(PurePosixPath(root) / strip.lstrip("/"))
             elif strip:
-                repo_dir = str(PurePosixPath(self.directory(label)) / strip)
-            roots.add(repo_dir)
+                root = str(PurePosixPath(self.directory(label)) / strip)
+            roots.add(root)
+            generators = [(p.name, p.options, p.suffixes) for p in self.protoc_plugins if label in selected[p.name]]
             for src in self.rs.labels(target, "srcs"):
                 path = self.path(src)
                 if path is None:
                     self.problems["proto source is not a file"].add(str(src))
                     continue
-                # A package may hold protos in sub-directories without BUILD files.
-                lines = self.subdirs[str(PurePosixPath(path).parent)]
-                stem = PurePosixPath(path).name.removesuffix(".proto")
-                outputs = [f"{stem}.pb.cc", f"{stem}.pb.h"]
-                args = ["proto_args", f"'--cpp_out=' + meson.project_build_root() / {quote(repo_dir)}"]
-                if label in validated:
-                    outputs += [f"{stem}.pb.validate.cc", f"{stem}.pb.validate.h"]
-                    args.append(f"'--validate_out=lang=cc:' + meson.project_build_root() / {quote(repo_dir)}")
-                var = "proto_" + ident(path.removesuffix(".proto"))
-                lines.append(
-                    f"{var} = custom_target(\n"
-                    f"  input: {quote(PurePosixPath(path).name)},\n"
-                    f"  output: {array(outputs, '    ')},\n"
-                    # protoc wants the input spelled the way the -I roots are: absolute.
-                    f"  command: [protoc, {', '.join(args)}, meson.current_source_dir() / {quote(PurePosixPath(path).name)}],\n"
-                    f"  depend_files: proto_inputs,\n"
-                    f")\n"
-                    f"proto_sources += {var}\n"
-                    f"proto_headers += [{', '.join(f'{var}[{i}]' for i in range(1, len(outputs), 2))}]\n"
-                )
-                count += 1
+                self.protoc_target(root, path, generators)
+        for root, file, grpc in self.settings.extra_protos:
+            roots.add(root)
+            self.protoc_target(root, f"{root}/{file}", [("grpc", "", (".grpc.pb.cc", ".grpc.pb.h"))] if grpc else [])
         # protoc names a file after the first root containing it, so nested
         # roots have to come before the directories they live in.
         self.proto_roots = sorted(roots, key=lambda r: (-len(PurePosixPath(r).parts), r))
-        self.proto_count = count
         return self.proto_roots
 
     # -- genrule ------------------------------------------------------------
@@ -190,124 +318,87 @@ class Emitter:
     def emit_genrule(self, label: Label, target: Target) -> None:
         srcs = self.rs.labels(target, "srcs")
         tools = self.rs.labels(target, "tools")
-        outs = self.rs.attr(target, "outs")
+        outs = list(self.rs.attr(target, "outs"))
         cmd = self.rs.attr(target, "cmd", "")
-        out_dir = f"@BLD@/{self.directory(label)}"
+        out_dir = self.build_path(self.directory(label))
 
         def location(match: re.Match[str]) -> str:
             item = self.ws.label(match.group(1), label.repo, label.pkg)
             path = self.path(item)
             if path is not None:
-                return f"@SRC@/{path}"
+                return shlex.quote(path)
             tool = self.ws.get(item)
             if tool is not None and tool.kind == "py_binary":
                 main = self.rs.attr(tool, "main") or self.rs.attr(tool, "srcs")[0]
                 main = main if isinstance(main, str) else main[0]
                 # Bazel puts the repository root on the import path of py_binary.
                 root = self.settings.repo_dirs[item.repo]
-                return f"PYTHONPATH=@SRC@/{root} python3 @SRC@/{self.directory(item)}/{main.removeprefix(':')}"
+                script = f"{self.directory(item)}/{main.removeprefix(':')}"
+                return f"PYTHONPATH={shlex.quote(root)} python3 {shlex.quote(script)}"
             self.problems["genrule: cannot locate"].add(f"{label}: {match.group(1)}")
             return match.group(0)
 
         cmd = re.sub(r"\./\$\(location ([^)]+)\)", r"$(location \1)", cmd)
         cmd = re.sub(r"\$\((?:location|execpath|rootpath) ([^)]+)\)", location, cmd)
         src_paths = [p for p in (self.path(s) for s in srcs) if p]
-        cmd = cmd.replace("$<", f"@SRC@/{src_paths[0]}" if src_paths else "")
-        cmd = cmd.replace("$(SRCS)", " ".join(f"@SRC@/{p}" for p in src_paths))
-        cmd = cmd.replace("$@", f"{out_dir}/{outs[0]}" if outs else "")
+        cmd = cmd.replace("$<", shlex.quote(src_paths[0]) if src_paths else "")
+        cmd = cmd.replace("$(SRCS)", shlex.join(src_paths))
+        cmd = cmd.replace("$@", f"{out_dir}/{shlex.quote(outs[0])}" if outs else "")
         cmd = cmd.replace("$(@D)", out_dir).replace("$(RULEDIR)", out_dir)
         if re.search(r"(?<!\$)\$\([A-Za-z]", cmd):
             self.problems["genrule: unhandled make variable"].add(str(label))
         cmd = cmd.replace("$$", "$")
         inputs = src_paths + [p for p in (self.path(t) for t in tools) if p]
-        var = "gen_" + ident(f"{self.directory(label)}/{label.name}")
-        self.subdirs[self.directory(label)].append(
-            f"{var} = custom_target(\n"
-            f"  output: {array(list(outs), '    ')},\n"
-            # Meson's own @SOURCE_ROOT@ is relative to the build directory,
-            # which stops being valid after the cd Bazel's cmd expects.
-            f"  command: ['sh', '-c', {quote('cd @SRC@ && ' + cmd.strip())}\n"
-            f"    .replace('@SRC@', meson.project_source_root())\n"
-            f"    .replace('@BLD@', meson.project_build_root())],\n"
-            f"  depend_files: files({array(['/'.join(['..'] * len(PurePosixPath(self.directory(label)).parts)) + '/' + p for p in inputs], '    ')}),\n"
-            f")\n"
-            f"generated_headers += {var}\n"
-        )
-
-    # -- rules with no generic translation ------------------------------------
-
-    def emit_antlr_library(self, label: Label, target: Target) -> None:
-        """ANTLR C++ parser; cel-cpp includes the result as <package dir>/<Grammar>Parser.h."""
-        (src,) = self.rs.labels(target, "src")
-        grammar = PurePosixPath(src.name).stem
-        outputs = [
-            f"{grammar}{part}.{ext}" for part in ("Lexer", "Parser", "BaseVisitor", "Visitor") for ext in ("h", "cpp")
+        name = "gen_" + sanitize(f"{self.directory(label)}/{label.name}")
+        self.subdirs[self.directory(label)] += [
+            assign(
+                name,
+                call(
+                    "custom_target",
+                    output=outs,
+                    depend_files=[SOURCE_ROOT / p for p in inputs],
+                    **self.script(name, cmd.strip()),
+                ),
+            ),
+            extend("generated_headers", var(name)),
+            "",
         ]
-        var = "gen_" + ident(f"{self.directory(label)}/{label.name}")
-        self.subdirs[self.directory(label)].append(
-            f"{var} = custom_target(\n"
-            f"  input: {quote(src.name)},\n"
-            f"  output: {array(outputs, '    ')},\n"
-            f"  command: [find_program('antlr4', 'antlr'), '-Dlanguage=Cpp', '-no-listener', '-visitor',\n"
-            f"    '-Xexact-output-dir', '-o', '@OUTDIR@', '-package', {quote(self.rs.attr(target, 'package', ''))}, '@INPUT@'],\n"
-            f")\n"
-            f"generated_headers += [{', '.join(f'{var}[{i}]' for i in range(0, len(outputs), 2))}]\n"
-        )
-        self.generated_sources[label.repo] += [f"{var}[{i}]" for i in range(1, len(outputs), 2)]
 
-    def emit_cel_cc_embed(self, label: Label, target: Target) -> None:
-        """A serialized FileDescriptorSet as a C array initializer, in <name>.inc."""
-        (src,) = self.rs.labels(target, "src")
-        descriptor_set = self.ws.get(src)
-        protos: list[str] = []
-        for dep in self.rs.labels(descriptor_set, "deps") if descriptor_set else []:
-            if dep.repo == "protobuf":
-                # Well-known types ship with protoc: //:any_proto is google/protobuf/any.proto.
-                protos.append(f"google/protobuf/{dep.name.removesuffix('_proto')}.proto")
-                continue
-            proto = self.ws.get(dep)
-            for item in self.rs.labels(proto, "srcs") if proto else []:
-                path = self.path(item)
-                if path is not None:
-                    protos.append(f"@SRC@/{path}")
-        if not protos:
-            self.problems["cel_cc_embed without protos"].add(str(label))
-        out = f"@BLD@/{self.directory(label)}/{label.name}"
-        script = (
-            f"protoc $0 --include_imports --descriptor_set_out={out}.binarypb {' '.join(protos)} && "
-            'python3 -c \'import sys; data = open(sys.argv[1], "rb").read(); '
-            'open(sys.argv[2], "w").write(", ".join("0x%02x" % b for b in data) + "\\n")\' '
-            f"{out}.binarypb {out}.inc"
-        )
-        var = "gen_" + ident(f"{self.directory(label)}/{label.name}")
-        self.subdirs[self.directory(label)].append(
-            f"{var} = custom_target(\n"
-            f"  output: {quote(label.name + '.inc')},\n"
-            f"  command: ['sh', '-c', {quote(script)}\n"
-            f"    .replace('@SRC@', meson.project_source_root())\n"
-            f"    .replace('@BLD@', meson.project_build_root()), ' '.join(proto_args)],\n"
-            f")\n"
-            f"generated_headers += {var}\n"
-        )
+    @staticmethod
+    def build_path(path: str) -> str:
+        """Shell word for a path in the build tree, for use in :meth:`script`."""
+        return f"${{MESON_BUILD_ROOT}}/{shlex.quote(path)}"
+
+    @staticmethod
+    def source_path(path: str) -> str:
+        """Shell word for the absolute path of a source file, for use in :meth:`script`."""
+        return f"${{MESON_SOURCE_ROOT}}/{shlex.quote(path)}"
+
+    def script(self, name: str, text: str) -> dict[str, Value]:
+        """custom_target() arguments that run shell text.
+
+        It runs in the source root, like a Bazel action runs in the exec
+        root, with MESON_SOURCE_ROOT, MESON_BUILD_ROOT and PROTO_ARGS set.
+        The text goes into a file: Meson turns backslashes in custom_target
+        commands into slashes, and a file needs no further quoting.
+        """
+        self.extra_files[f"{SCRIPTS}/{name}.sh"] = f'set -e\ncd "$MESON_SOURCE_ROOT"\n{text}\n'
+        return {"command": ["sh", SOURCE_ROOT / f"{SCRIPTS}/{name}.sh"], "env": var("script_env")}
 
     # -- C/C++ --------------------------------------------------------------
 
     def emit(self) -> dict[str, str]:
         self.collect()
         self.emit_protos()
-        # Meson expressions for generated .cc files, by owning repository.
-        self.generated_sources: dict[str, list[str]] = defaultdict(list)
-        handlers = {
-            "genrule": self.emit_genrule,
-            "antlr_library": self.emit_antlr_library,
-            "cel_cc_embed": self.emit_cel_cc_embed,
-        }
-
         sources: dict[str, list[str]] = defaultdict(list)
         copts: dict[str, list[str]] = defaultdict(list)
         defines: list[str] = []
-        include_dirs: set[str] = {".", *self.proto_roots}
-        linkopts: list[str] = []
+        include_dirs = self.include_dirs
+        include_dirs.update(self.proto_roots)
+        linkopts: list[Value] = []
+        virtual = self.extra_files
+        for visible, actual in self.settings.forward_headers.items():
+            virtual[f"{VIRTUAL_INCLUDES}/{visible}"] = f"#include <{actual}>\n"
 
         def add_unique(dest: list[str], items: list[str]) -> None:
             for item in items:
@@ -315,20 +406,13 @@ class Emitter:
                     dest.append(item)
 
         for label, target in sorted(self.targets.items()):
-            if target.kind in handlers:
-                handlers[target.kind](label, target)
+            if target.kind in self.handlers:
+                self.handlers[target.kind](label, target)
                 continue
             if target.kind not in CC_KINDS:
-                if target.kind not in PROTO_CC_KINDS | {
-                    "proto_library",
-                    "alias",
-                    "label_flag",
-                    "filegroup",
-                    "py_binary",
-                    "py_library",
-                    "bool_flag",
-                    "cel_proto_transitive_descriptor_set",
-                }:
+                if target.kind not in self.passive_kinds and not any(
+                    target.kind in plugin.kinds for plugin in self.protoc_plugins
+                ):
                     self.problems[f"unhandled rule kind {target.kind}"].add(str(label))
                 continue
             repo_dir = self.settings.repo_dirs[label.repo]
@@ -339,99 +423,137 @@ class Emitter:
                 path = self.path(src)
                 if path is not None:
                     sources[label.repo].append(path)
-            add_unique(copts[label.repo], [str(c) for c in self.rs.attr(target, "copts")])
+            for stamp in self.rs.labels(target, "linkstamp"):
+                # Bazel compiles linkstamps at link time with the workspace
+                # status as defines; here the status is fixed when generating.
+                path = self.path(stamp)
+                wrapper = f"{SCRIPTS}/{sanitize(path or str(stamp))}.cc"
+                virtual[wrapper] = (
+                    f"#define BUILD_SCM_REVISION {c_string(self.settings.revision)}\n"
+                    '#define BUILD_SCM_STATUS "Distribution"\n'
+                    f"#include {c_string(path or '')}\n"
+                )
+                sources[label.repo].append(wrapper)
+            # Bazel splits each copt like a shell would.
+            add_unique(copts[label.repo], [t for c in self.rs.attr(target, "copts") for t in shlex.split(str(c))])
             add_unique(defines, [str(d) for d in self.rs.attr(target, "defines")])
             add_unique(copts[label.repo], [f"-D{d}" for d in self.rs.attr(target, "local_defines")])
-            add_unique(linkopts, [str(o) for o in self.rs.attr(target, "linkopts")])
+            for opt in self.rs.attr(target, "linkopts"):
+                expr = self.linkopt(label, str(opt))
+                if expr is not None and render(expr) not in map(render, linkopts):
+                    linkopts.append(expr)
             for inc in self.rs.attr(target, "includes"):
                 include_dirs.add(str(PurePosixPath(self.directory(label)) / inc))
             strip = self.rs.attr(target, "strip_include_prefix", "")
-            if strip:
+            prefix = self.rs.attr(target, "include_prefix", "")
+            if prefix:
+                # Headers are included under a path that does not exist on
+                # disk; Bazel symlinks them, we write forwarding headers.
+                stripped = PurePosixPath(self.directory(label)) / strip
+                for hdr in self.rs.labels(target, "hdrs"):
+                    path = self.path(hdr)
+                    if path is None or not PurePosixPath(path).is_relative_to(stripped):
+                        continue
+                    visible = PurePosixPath(prefix) / PurePosixPath(path).relative_to(stripped)
+                    virtual[f"{VIRTUAL_INCLUDES}/{visible}"] = f"#include {c_string(path)}\n"
+            elif strip:
                 base = repo_dir if strip.startswith("/") else self.directory(label)
                 include_dirs.add(str(PurePosixPath(base) / strip.lstrip("/")))
 
-        out: dict[str, str] = {}
+        out: dict[str, str] = dict(virtual)
         for directory, lines in sorted(self.subdirs.items()):
             out[f"{directory}/meson.build"] = "\n".join(lines)
 
+        project = self.settings.project_name
+        protoc_generators = [p.name for p in self.protoc_plugins]
         root: list[str] = [
             "# Generated by bazel2meson. Do not edit.",
-            f"project({quote(self.settings.project_name)}, 'cpp', 'c',",
-            f"  version: {quote(self.settings.version)},",
-            "  meson_version: '>=1.3',",
-            "  default_options: ['cpp_std=c++20', 'c_std=gnu11', 'warning_level=0', 'buildtype=release',",
-            "                    'b_staticpic=true', 'default_library=static'],",
-            ")",
+            statement(
+                call(
+                    "project",
+                    project,
+                    "cpp",
+                    "c",
+                    version=self.settings.version,
+                    meson_version=">=1.3",
+                    default_options=[
+                        "cpp_std=c++20",
+                        "c_std=gnu11",
+                        "warning_level=0",
+                        "buildtype=release",
+                        "b_staticpic=true",
+                        "default_library=static",
+                    ],
+                )
+            ),
             "",
-            "protoc = find_program('protoc')",
-            "protoc_gen_validate = find_program('protoc-gen-validate')",
-            f"proto_roots = {array(self.proto_roots)}",
-            "proto_args = ['--plugin=protoc-gen-validate=' + protoc_gen_validate.full_path()]",
-            "foreach root : proto_roots",
-            "  proto_args += '-I' + meson.project_source_root() / root",
-            "endforeach",
-            "proto_inputs = []",
-            "proto_sources = []",
-            "proto_headers = []",
-            "generated_headers = []",
+            assign("proto_roots", self.proto_roots),
+            assign("protoc_generators", protoc_generators),
+            assign("grpc_protos", any(grpc for _, _, grpc in self.settings.extra_protos)),
+            assign("system_deps", sorted(self.system_deps)),
+            template("setup.meson"),
+            *self.templates.values(),
+            *(statement(call("subdir", d)) for d in sorted(self.subdirs)),
             "",
-            f"system_deps = {array(sorted(self.system_deps))}",
-            "deps = [dependency('threads')]",
-            "foreach name : system_deps",
-            "  if name.startswith('lib:')",
-            "    deps += meson.get_compiler('cpp').find_library(name.substring(4))",
-            "  elif name.startswith('?')",
-            "    deps += dependency(name.substring(1), required: false)",
-            "  else",
-            "    deps += dependency(name)",
-            "  endif",
-            "endforeach",
-            "",
+            assign("include_dirs", sorted(include_dirs)),
+            assign("project_defines", ["-D" + d for d in [*defines, *sorted(self.system_defines)]]),
+            assign("protos_name", f"{sanitize(project)}_protos"),
+            template("libraries.meson"),
         ]
-        root += [f"subdir({quote(d)})" for d in sorted(self.subdirs)]
-        root += [
-            "",
-            f"inc = include_directories({array(sorted(include_dirs))})",
-            f"add_project_arguments({array(['-D' + d for d in defines])}, language: ['c', 'cpp'])",
-            "",
-            "protos = static_library('envoy_protos', proto_sources,",
-            "  include_directories: inc, dependencies: deps)",
-            "proto_dep = declare_dependency(link_whole: protos, sources: proto_headers)",
-            "",
-            "libs = []",
-        ]
-        for repo in sorted(set(sources) | set(self.generated_sources)):
-            if repo == self.settings.root.repo:
-                continue
-            name = ident(repo)
-            args = [c for c in copts[repo] if not c.startswith("-std=")]
-            root += [
-                f"libs += static_library({quote(name)},",
-                f"  files({array(sorted(set(sources[repo])), '    ')}),",
-                f"  [{', '.join(self.generated_sources[repo])}], generated_headers,",
-                f"  cpp_args: {array(args, '    ')},",
-                f"  c_args: {array(args, '    ')},",
-                "  include_directories: inc, dependencies: deps + [proto_dep])",
-                "",
-            ]
+
+        def compiled(repo: str) -> dict[str, Value]:
+            args = cxx_args(copts[repo])
+            return {
+                "sources": [
+                    call("files", sorted(set(sources[repo]))),
+                    *self.generated_sources[repo],
+                    var("generated_headers"),
+                ],
+                "cpp_args": args,
+                "c_args": c_args(args),
+                "include_directories": var("inc"),
+                "dependencies": [var("deps"), var("proto_dep")],
+            }
+
         main = self.settings.root.repo
-        args = [c for c in copts[main] if not c.startswith("-std=")]
+        for repo in sorted((set(sources) | set(self.generated_sources)) - {main}):
+            root.append(extend("libs", call("static_library", sanitize(repo), **compiled(repo))))
         root += [
-            f"executable({quote(self.settings.project_name)},",
-            f"  files({array(sorted(set(sources[main])), '    ')}),",
-            f"  [{', '.join(self.generated_sources[main])}], generated_headers,",
-            f"  cpp_args: {array(args, '    ')},",
-            f"  c_args: {array(args, '    ')},",
-            f"  link_args: {array([o for o in linkopts if not o.startswith('-fuse-ld')], '    ')},",
-            "  include_directories: inc,",
-            "  dependencies: deps + [proto_dep],",
-            "  link_whole: libs,",
-            "  install: true,",
-            ")",
+            statement(
+                call(
+                    "executable",
+                    project,
+                    **compiled(main),
+                    link_args=linkopts,
+                    link_whole=var("libs"),
+                    install=True,
+                )
+            ),
             "",
         ]
         out["meson.build"] = "\n".join(root)
         return out
+
+
+def template(name: str) -> str:
+    """Hand-written Meson code; its inputs are variables assigned before it."""
+    return resources.files(__package__).joinpath("templates", name).read_text()
+
+
+def c_string(text: str) -> str:
+    """A C string literal."""
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def cxx_args(copts: list[str]) -> list[str]:
+    # The language standard is a project option; warnings stay warnings
+    # because system libraries differ from the versions upstream tests with.
+    return [c for c in copts if not c.startswith("-std=") and not c.startswith("-Werror")]
+
+
+def c_args(copts: list[str]) -> list[str]:
+    # Upstream's warning flags are chosen for C++ and partly invalid for C.
+    return [c for c in copts if not c.startswith("-W")]
 
 
 def write(files: dict[str, str], dest: Path) -> None:
@@ -441,11 +563,11 @@ def write(files: dict[str, str], dest: Path) -> None:
         path.write_text(content)
 
 
-def format_problems(problems: dict[str, set[str]]) -> str:
+def format_problems(problems: dict[str, set[str]], limit: int = 25) -> str:
     lines = []
     for kind, items in sorted(problems.items()):
         lines.append(f"{kind} ({len(items)}):")
-        lines += [f"  {shlex.quote(i)}" for i in sorted(items)[:25]]
-        if len(items) > 25:
-            lines.append(f"  ... and {len(items) - 25} more")
+        lines += [f"  {shlex.quote(i)}" for i in sorted(items)[:limit]]
+        if len(items) > limit:
+            lines.append(f"  ... and {len(items) - limit} more")
     return "\n".join(lines)

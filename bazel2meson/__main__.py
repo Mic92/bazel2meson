@@ -7,10 +7,9 @@ import sys
 import tomllib
 from pathlib import Path
 
-from . import modules
+from . import plugins, project
 from .graph import Config, Resolver
 from .meson import Emitter, Settings, SystemRepo, format_problems, write
-from .starlark import Repo, Workspace
 
 
 def main() -> int:
@@ -25,36 +24,16 @@ def main() -> int:
         help="where an external Bazel repository is unpacked, relative to --source",
     )
     parser.add_argument("--cpu", default="x86_64", choices=["x86_64", "aarch64"])
+    parser.add_argument("--output", type=Path, help="where to write the generated files (default: the source tree)")
+    parser.add_argument("--verbose", action="store_true", help="list every problem")
     parser.add_argument("--version", default="0")
+    parser.add_argument("--revision", default="0" * 40, help="source revision the binary reports")
     args = parser.parse_args()
 
     raw = tomllib.loads(args.config.read_text())
     source = args.source.resolve()
 
-    repo_dirs: dict[str, str] = {"": "."}
-    repo_dirs.update(raw.get("repos", {}))
-    repo_dirs.update(dict(item.split("=", 1) for item in args.repo))
-    repos = {name: Repo(name, source / directory) for name, directory in repo_dirs.items()}
-    # Bazel resolves "@name" through the MODULE.bazel of the repository the
-    # label is written in.
-    mappings: dict[str, dict[str, str]] = {"*": raw.get("repo_aliases", {})}
-    redirects: dict[str, str] = dict(raw.get("redirect", {}))
-    for name, repo in list(repos.items()):
-        module_file = repo.root / "MODULE.bazel"
-        if not module_file.is_file():
-            continue
-        module = modules.parse(module_file)
-        mappings[name] = module.mapping
-        if name != "":
-            continue
-        repos[module.name] = repo
-        # Envoy's registry modules take root-provided targets through a
-        # `<module>.deps(key = label)` tag and expose them as @<module>_deps//:key.
-        for extension, tags in module.tags.items():
-            for call in tags.get("deps", []):
-                for key, target in call.items():
-                    redirects.setdefault(f"@{extension}_deps//:{key}", target)
-    ws = Workspace(repos=repos, mappings=mappings, redirects=redirects)
+    ws, repo_dirs, _ = project.workspace(raw, source, args.repo)
 
     bazel_cpu = {"x86_64": "k8", "aarch64": "aarch64"}[args.cpu]
     cfg = raw.get("config", {})
@@ -72,12 +51,20 @@ def main() -> int:
         system={name: SystemRepo(**spec) for name, spec in raw.get("system", {}).items()},
         ignore=set(raw.get("ignore", [])),
         exclude={str(ws.label(item, "", "")) for item in raw.get("exclude", [])},
-        project_name=raw.get("name", "envoy"),
+        extra_protos=[
+            (group["root"], file, file in group.get("grpc", []))
+            for group in raw.get("extra_protos", [])
+            for file in group["files"]
+        ],
+        forward_headers=raw.get("forward_headers", {}),
+        revision=args.revision,
+        project_name=raw.get("name", args.config.stem),
         version=args.version,
     )
     emitter = Emitter(ws, resolver, settings)
+    plugins.load(raw.get("plugins", []), args.config.parent, emitter)
     files = emitter.emit()
-    write(files, source)
+    write(files, args.output or source)
 
     if resolver.unknown_conditions:
         emitter.problems["select() condition could not be evaluated (treated as false)"].update(
@@ -89,7 +76,7 @@ def main() -> int:
         )
     print(f"wrote {len(files)} meson.build files, {emitter.proto_count} protos", file=sys.stderr)
     if emitter.problems:
-        print(format_problems(emitter.problems), file=sys.stderr)
+        print(format_problems(emitter.problems, sys.maxsize if args.verbose else 25), file=sys.stderr)
     return 0
 
 

@@ -1,0 +1,42 @@
+# Tools and dependencies. Inputs, assigned by the generated code above:
+#   proto_roots        directories .proto imports are relative to
+#   protoc_generators  protoc-gen-NAME plugins to load
+#   grpc_protos        whether gRPC service stubs are generated
+#   system_deps        installed libraries, see SystemRepo.dependencies
+
+protoc = find_program('protoc')
+proto_args = []
+foreach name : protoc_generators
+  proto_args += '--plugin=protoc-gen-' + name + '=' + find_program('protoc-gen-' + name).full_path()
+endforeach
+if grpc_protos
+  proto_args += '--plugin=protoc-gen-grpc=' + find_program('grpc_cpp_plugin').full_path()
+endif
+foreach root : proto_roots
+  proto_args += '-I' + meson.project_source_root() / root
+endforeach
+# Environment of the scripts in bazel2meson-scripts.
+script_env = environment({
+  'MESON_SOURCE_ROOT': meson.project_source_root(),
+  'MESON_BUILD_ROOT': meson.project_build_root(),
+  'PROTO_ARGS': ' '.join(proto_args),
+})
+proto_inputs = []
+proto_sources = []
+proto_headers = []
+generated_headers = []
+
+deps = [dependency('threads')]
+foreach name : system_deps
+  if name.startswith('lib:')
+    deps += meson.get_compiler('cpp').find_library(name.substring(4))
+  elif name.startswith('includes:')
+    deps += dependency(name.substring(9)).partial_dependency(includes: true)
+  elif name.startswith('cmake:')
+    deps += dependency(name.split(':')[1], method: 'cmake', modules: [name.split(':')[2]])
+  elif name.startswith('?')
+    deps += dependency(name.substring(1), required: false)
+  else
+    deps += dependency(name)
+  endif
+endforeach

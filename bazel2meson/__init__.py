@@ -1,1 +1,1 @@
-"""Translate Envoy's Bazel build into a Meson build."""
+"""Generate a Meson build from a project's Bazel build files."""
