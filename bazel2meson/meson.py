@@ -237,6 +237,10 @@ class Emitter:
             self.targets[label] = target
             for edge in EDGES:
                 stack.extend(self.rs.labels(target, edge))
+            if target.kind == "label_flag":
+                # Stands for the target it is set to.
+                value = self.rs.config.flags.get(str(label)) or self.rs.value(target.attrs["build_setting_default"])
+                stack.append(self.ws.label(str(value), label.repo, label.pkg))
 
     def linkopt(self, label: Label, opt: str) -> Value | None:
         """A linker option, None to drop it."""
