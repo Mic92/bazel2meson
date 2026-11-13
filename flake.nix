@@ -24,6 +24,7 @@
           inherit bazel2meson;
           default = bazel2meson;
           envoy = pkgs.callPackage ./examples/envoy/package.nix { inherit bazel2meson; };
+          bant = pkgs.callPackage ./examples/bant/package.nix { inherit bazel2meson; };
           jaxlib = pkgs.callPackage ./examples/jax/package.nix { inherit bazel2meson; };
         }
       );

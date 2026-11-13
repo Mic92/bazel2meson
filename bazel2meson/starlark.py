@@ -362,6 +362,14 @@ class Workspace:
                     result.append(item)
             return result
 
+        def module_field(field: str) -> str | None:
+            """A field of module() in the MODULE.bazel of the current repository."""
+            root = ws.repo_root(ws._ctx[-1][0])
+            if root is None or not (root / "MODULE.bazel").is_file():
+                return None
+            found = re.search(rf"\bmodule\([^)]*?\b{field}\s*=\s*\"([^\"]*)\"", (root / "MODULE.bazel").read_text())
+            return found.group(1) if found else None
+
         def fail(*args: Any, **_: Any) -> None:
             raise StarlarkError(" ".join(str(a) for a in args))
 
@@ -405,6 +413,7 @@ class Workspace:
             "load": load,
             "select": select,
             "glob": glob,
+            "module_version": lambda: module_field("version"),
             "fail": fail,
             "struct": Struct,
             "type": _starlark_type,
@@ -628,10 +637,8 @@ class NativeModule:
             return dict
         if name in ("package", "licenses", "exports_files", "package_group", "register_toolchains"):
             return lambda *a, **k: None
-        if name == "glob":
-            return ws._globals(*ws._ctx[-1], is_build=False)["glob"]
-        if name == "module_version":
-            return lambda: ""
+        if name in ("glob", "module_version"):
+            return ws._globals(*ws._ctx[-1], is_build=False)[name]
         return ws.recorder(name)
 
 

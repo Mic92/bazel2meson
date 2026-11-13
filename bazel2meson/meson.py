@@ -50,6 +50,7 @@ SOURCE_SUFFIXES = {".cc", ".c", ".cpp", ".S"}
 VIRTUAL_INCLUDES = "bazel2meson-includes"
 SCRIPTS = "bazel2meson-scripts"
 PCH = "bazel2meson-pch"
+BIN = "bazel2meson-bin"
 EDGES = (
     "deps",
     "actual",
@@ -221,8 +222,13 @@ class Emitter:
                 continue
             target = self.ws.get(label)
             if target is None:
-                if self.path(label) is None and not self.copied(label) and not self.generated(label):
-                    self.problems["label is neither a target nor a file"].add(str(label))
+                if self.path(label) is None and not self.copied(label):
+                    producer = self.generated(label)
+                    if producer is None:
+                        self.problems["label is neither a target nor a file"].add(str(label))
+                    else:
+                        # Files may be named without naming the rule making them.
+                        stack.append(producer)
                 self.files.add(label)
                 continue
             self.targets[label] = target
@@ -243,13 +249,13 @@ class Emitter:
         located = opt[: match.start()] + SOURCE_ROOT / path
         return located + opt[match.end() :] if opt[match.end() :] else located
 
-    def generated(self, label: Label) -> bool:
-        """Whether a rule in the package declares the file as output."""
+    def generated(self, label: Label) -> Label | None:
+        """The rule in the package that declares the file as output."""
         for other, target in self.ws.targets.items():
             outputs = self.outputs.get(target.kind)
             if outputs and (other.repo, other.pkg) == (label.repo, label.pkg) and label.name in outputs(target):
-                return True
-        return False
+                return other
+        return None
 
     def copied(self, label: Label) -> bool:
         """Whether the file is written when generating: the output of a
@@ -534,6 +540,8 @@ class Emitter:
                 base = repo_dir if strip.startswith("/") else self.directory(label)
                 include_dirs.add(str(PurePosixPath(base) / strip.lstrip("/")))
 
+        if not any(path.startswith(VIRTUAL_INCLUDES + "/") for path in virtual):
+            include_dirs.discard(VIRTUAL_INCLUDES)
         out: dict[str, str] = dict(virtual)
         for directory, lines in sorted(self.subdirs.items()):
             out[f"{directory}/meson.build"] = "\n".join(lines)
@@ -632,18 +640,22 @@ class Emitter:
         else:
             for repo in sorted(repos - {main}):
                 root.append(extend("libs", call("static_library", sanitize(repo), **compiled(repo))))
-            root.append(
-                statement(
-                    call(
-                        "executable",
-                        project,
-                        **compiled(main),
-                        link_args=linkopts,
-                        link_whole=var("libs"),
-                        install=True,
-                    )
-                )
-            )
+            args: dict[str, Value] = {
+                **compiled(main),
+                "link_args": linkopts,
+                "link_whole": var("libs"),
+                "install": True,
+            }
+            if any(d.split("/")[0] == project for d in self.subdirs):
+                # The build tree has a directory with the executable's name
+                # for generated files, so the executable moves into one of
+                # its own.
+                if "cpp_pch" in args:
+                    args["cpp_pch"] = f"../{args['cpp_pch']}"
+                root += [assign("executable_args", args), statement(call("subdir", BIN))]
+                out[f"{BIN}/meson.build"] = statement(call("executable", project, kwargs=var("executable_args")))
+            else:
+                root.append(statement(call("executable", project, **args)))
         root.append("")
         out["meson.build"] = "\n".join(root)
         return out

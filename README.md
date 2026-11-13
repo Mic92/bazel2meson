@@ -13,13 +13,18 @@ result builds with Meson and Ninja, each dependency is either a system
 library or a small, individually pinned source archive, and following a new
 upstream release means bumping the pin and re-running the generator.
 
-**Status: work in progress.** [Envoy](examples/envoy) is the first project
-and the test bed; its build compiles but has not linked yet.
+**Status: work in progress.** The examples:
+
+- [bant](examples/bant): builds and runs; every dependency is an installed
+  library. `nix build .#bant`
+- [Envoy](examples/envoy): the test bed; compiles, not linked yet.
+- [jaxlib](examples/jax): generates, not compiled yet.
 
 ## Configuration
 
 A TOML file describes one project; see
-[examples/envoy/envoy.toml](examples/envoy/envoy.toml).
+[examples/bant/bant.toml](examples/bant/bant.toml) for a small one and
+[examples/envoy/envoy.toml](examples/envoy/envoy.toml) for a large one.
 
 - `root`: the target to build.
 - `[config]`: flags and defines that `select()` is resolved against.

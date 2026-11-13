@@ -4,7 +4,7 @@
 #   grpc_protos        whether gRPC service stubs are generated
 #   system_deps        installed libraries, see SystemRepo.dependencies
 
-protoc = find_program('protoc')
+protoc = find_program('protoc', required: proto_roots.length() > 0)
 proto_args = []
 foreach name : protoc_generators
   proto_args += '--plugin=protoc-gen-' + name + '=' + find_program('protoc-gen-' + name).full_path()
