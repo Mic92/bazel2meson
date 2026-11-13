@@ -121,11 +121,6 @@ files = ["src/proto/grpc/health/v1/health.proto"]
 "third_party/utf8_range/utf8_validity.h" = "utf8_validity.h"
 "src/google/protobuf/util/field_mask_util.h" = "google/protobuf/util/field_mask_util.h"
 
-# Precompile the headers that at least a third of Envoy's sources include.
-# Build with -Db_pch=false to compile without it.
-[pch.envoy]
-min_share = 0.33
-
 # Repositories are named after their Bazel module.
 
 # External repositories that are built from source because nixpkgs has no
