@@ -40,6 +40,7 @@
           (pkgs.mkShell.override { inherit (self.packages.${pkgs.stdenv.hostPlatform.system}.envoy) stdenv; })
             {
               inputsFrom = [ self.packages.${pkgs.stdenv.hostPlatform.system}.envoy ];
+              inherit (self.packages.${pkgs.stdenv.hostPlatform.system}.envoy) NIX_CFLAGS_COMPILE;
               packages = [
                 pkgs.ruff
                 pkgs.ty
