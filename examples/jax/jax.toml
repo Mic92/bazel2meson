@@ -19,9 +19,10 @@ tsl = "external/xla/third_party/tsl"
 values = { compilation_mode = "opt" }
 
 # Installed libraries. XLA pins LLVM to a development commit; nixpkgs'
-# llvmPackages_git is close to it.
+# llvmPackages_git is close to it. libLLVM is looked up as a plain library:
+# Meson has a handler of its own for the name LLVM that wants component names.
 [system.llvm-project]
-dependencies = ["cmake:LLVM:LLVM", "cmake:MLIR:MLIR"]
+dependencies = ["lib:LLVM", "cmake:MLIR:MLIR"]
 
 [system.abseil-cpp]
 dependencies = ["absl_base", "absl_strings", "absl_status", "absl_statusor", "absl_flat_hash_map", "absl_synchronization", "absl_time"]
