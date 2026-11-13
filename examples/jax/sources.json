@@ -59,6 +59,24 @@
     ],
     "version": "aa46a4c21e440b3d416c16eca3c96df19c74f316"
   },
+  "eigen_archive": {
+    "hash": "sha256-NcYSbiRlhdnPZgC2VHFYLCcBquZLeEpv0ZFoqQz8hB4=",
+    "overlay": [
+      {
+        "file": "third_party/eigen3/eigen_archive.BUILD",
+        "path": "BUILD.bazel",
+        "repo": "xla"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "eigen-ea13a98decd497a8c5588fb5de71b57bcf10d864",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/gitlab.com/libeigen/eigen/-/archive/ea13a98decd497a8c5588fb5de71b57bcf10d864/eigen-ea13a98decd497a8c5588fb5de71b57bcf10d864.tar.gz",
+      "https://gitlab.com/libeigen/eigen/-/archive/ea13a98decd497a8c5588fb5de71b57bcf10d864/eigen-ea13a98decd497a8c5588fb5de71b57bcf10d864.tar.gz"
+    ],
+    "version": "ea13a98decd497a8c5588fb5de71b57bcf10d864"
+  },
   "gloo": {
     "hash": "sha256-YQiTYdvbydb3XilxSDabE/YVo+a3jeG+VsznTKL2SUA=",
     "overlay": [
@@ -94,6 +112,29 @@
       "https://github.com/google/highwayhash/archive/c13d28517a4db259d738ea4886b1f00352a3cc33.tar.gz"
     ],
     "version": "c13d28517a4db259d738ea4886b1f00352a3cc33"
+  },
+  "ml_dtypes_py": {
+    "hash": "sha256-9uWIBmZmE1HmzQhKxBeN3E2rzefppzcimBwNFQDPWTc=",
+    "overlay": [
+      {
+        "file": "third_party/py/ml_dtypes/ml_dtypes.BUILD",
+        "path": "ml_dtypes/BUILD.bazel",
+        "repo": "xla"
+      },
+      {
+        "file": "third_party/py/ml_dtypes/ml_dtypes_py.BUILD",
+        "path": "BUILD.bazel",
+        "repo": "xla"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "ml_dtypes-00d98cd92ade342fef589c0470379abb27baebe9",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/jax-ml/ml_dtypes/archive/00d98cd92ade342fef589c0470379abb27baebe9/ml_dtypes-00d98cd92ade342fef589c0470379abb27baebe9.tar.gz",
+      "https://github.com/jax-ml/ml_dtypes/archive/00d98cd92ade342fef589c0470379abb27baebe9/ml_dtypes-00d98cd92ade342fef589c0470379abb27baebe9.tar.gz"
+    ],
+    "version": "00d98cd92ade342fef589c0470379abb27baebe9"
   },
   "mpitrampoline": {
     "hash": "sha256-WjZlYgXEcr22Ob/+uw8BRSOzLdoMLL7dnOer/J6HnoQ=",

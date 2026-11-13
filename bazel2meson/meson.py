@@ -442,7 +442,10 @@ class Emitter:
                 return found
             tool = self.ws.get(item)
             if tool is not None and tool.kind == "py_binary":
-                main = self.rs.attr(tool, "main") or self.rs.attr(tool, "srcs")[0]
+                # Bazel's default is the source named like the target.
+                sources = [str(s) for s in self.rs.attr(tool, "srcs")]
+                named = [s for s in sources if PurePosixPath(s.removeprefix(":")).name == f"{item.name}.py"]
+                main = self.rs.attr(tool, "main") or (named or sources)[0]
                 main = main if isinstance(main, str) else main[0]
                 # Bazel puts the repository root on the import path of py_binary.
                 root = self.settings.repo_dirs[item.repo]
@@ -539,7 +542,11 @@ class Emitter:
                 if item not in dest:
                     dest.append(item)
 
-        generated_srcs: list[tuple[str, Label]] = []
+        generated_srcs: list[tuple[str, tuple[str, ...], Label]] = []
+        dependent_defines: list[str] = []
+        # (repository, machine options) -> sources compiled with them.
+        variants: dict[tuple[str, tuple[str, ...]], list[str]] = defaultdict(list)
+        variant_generated: dict[tuple[str, tuple[str, ...]], list[Expr]] = defaultdict(list)
         for label, target in sorted(self.targets.items()):
             if target.kind in self.handlers:
                 self.handlers[target.kind](label, target)
@@ -556,14 +563,30 @@ class Emitter:
             repo_dir = self.settings.repo_dirs[label.repo]
             include_dirs.add(repo_dir)
             unit: str | Label = label if label in modules else label.repo
+            # Bazel splits each copt like a shell would.
+            flags = [t for c in self.rs.attr(target, "copts") for t in shlex.split(str(c))]
+            # Options selecting an instruction set must stay with the target
+            # naming them: its sources only run after a CPU check.
+            flags += [f"-D{d}" for d in self.rs.attr(target, "local_defines")]
+            # Its other options stay with it too, as they tend to go together.
+            machine = tuple(flags) if isinstance(unit, str) and any(f.startswith("-m") for f in flags) else ()
+            exported = [str(d) for d in self.rs.attr(target, "defines")]
+            if machine:
+                # Bazel hands defines to the targets depending on this one.
+                # Sources built for another instruction set must not see them.
+                machine += tuple(f"-D{d}" for d in exported)
+                add_unique(dependent_defines, exported)
+            else:
+                add_unique(copts[unit], flags)
+                add_unique(defines, exported)
             for src in self.rs.labels(target, "srcs"):
                 if PurePosixPath(src.name).suffix not in SOURCE_SUFFIXES:
                     continue
                 path = self.path(src)
                 if path is not None:
-                    sources[unit].append(path)
+                    (variants[unit, machine] if machine else sources[unit]).append(path)
                 elif isinstance(unit, str):
-                    generated_srcs.append((unit, src))
+                    generated_srcs.append((unit, machine, src))
             for stamp in self.rs.labels(target, "linkstamp"):
                 # Bazel compiles linkstamps at link time with the workspace
                 # status as defines; here the status is fixed when generating.
@@ -575,10 +598,6 @@ class Emitter:
                     f"#include {c_string(path or '')}\n"
                 )
                 sources[unit].append(wrapper)
-            # Bazel splits each copt like a shell would.
-            add_unique(copts[unit], [t for c in self.rs.attr(target, "copts") for t in shlex.split(str(c))])
-            add_unique(defines, [str(d) for d in self.rs.attr(target, "defines")])
-            add_unique(copts[unit], [f"-D{d}" for d in self.rs.attr(target, "local_defines")])
             for opt in self.rs.attr(target, "linkopts"):
                 expr = self.linkopt(label, str(opt))
                 if expr is not None and render(expr) not in map(render, linkopts):
@@ -604,9 +623,10 @@ class Emitter:
                 base = repo_dir if strip.startswith("/") else self.directory(label)
                 include_dirs.add(str(PurePosixPath(base) / strip.lstrip("/")))
 
-        for repo, src in generated_srcs:
+        for repo, machine, src in generated_srcs:
             if src in self.genrule_sources:
-                self.generated_sources[repo].append(self.genrule_sources[src])
+                dest = variant_generated[repo, machine] if machine else self.generated_sources[repo]
+                dest.append(self.genrule_sources[src])
         if not any(path.startswith(VIRTUAL_INCLUDES + "/") for path in virtual):
             include_dirs.discard(VIRTUAL_INCLUDES)
         out: dict[str, str] = dict(virtual)
@@ -666,7 +686,7 @@ class Emitter:
             self.problems["[pch] names a repository without sources"].add(name)
 
         def compiled(unit: str | Label) -> dict[str, Value]:
-            args = cxx_args(copts[unit])
+            args = cxx_args([*copts[unit], *(f"-D{d}" for d in dependent_defines)])
             pch: dict[str, Value] = {}
             spec = specs.get(unit) if isinstance(unit, str) else None
             text = pch_header(spec, scanner, sources[unit]) if spec else None
@@ -688,6 +708,26 @@ class Emitter:
                 "dependencies": [var("deps"), var("proto_dep")],
             }
 
+        for index, (repo, machine) in enumerate(sorted(set(variants) | set(variant_generated))):
+            args = cxx_args(list(machine))
+            root.append(
+                extend(
+                    "libs",
+                    call(
+                        "static_library",
+                        sanitize(f"{repo or project}_{'_'.join(f for f in machine if f.startswith('-m'))}_{index}"),
+                        sources=[
+                            call("files", sorted(set(variants[repo, machine]))),
+                            *variant_generated[repo, machine],
+                            var("generated_headers"),
+                        ],
+                        cpp_args=args,
+                        c_args=c_args(args),
+                        include_directories=var("inc"),
+                        dependencies=[var("deps"), var("proto_dep")],
+                    ),
+                )
+            )
         repos = {unit for unit in sources if isinstance(unit, str)} | set(self.generated_sources)
         if modules:
             # Everything the modules share, in one library next to them.

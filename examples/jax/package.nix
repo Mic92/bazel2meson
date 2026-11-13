@@ -20,7 +20,6 @@
   cpuinfo,
   curl,
   dlpack,
-  eigen,
   farmhash,
   hwloc,
   jsoncpp,
@@ -98,6 +97,9 @@ stdenv.mkDerivation {
   ];
   dontUseCmakeConfigure = true;
 
+  # While the port is in progress: show every failure of a run.
+  ninjaFlags = [ "-k0" ];
+
   buildInputs = [
     llvmPackages.libllvm
     llvmPackages.mlir
@@ -111,7 +113,6 @@ stdenv.mkDerivation {
     cpuinfo
     curl
     dlpack
-    eigen
     farmhash
     hwloc
     jsoncpp

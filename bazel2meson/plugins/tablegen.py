@@ -47,7 +47,7 @@ def gentbl_cc_library(em: Emitter, label: Label, target: Target) -> None:
     if td_path is None:
         em.problems["gentbl_cc_library: td_file is not a file"].add(str(label))
         return
-    dirs = [em.settings.repo_dirs[label.repo], str(package)]
+    dirs = [em.settings.repo_dirs[label.repo], str(package), str(PurePosixPath(td_path).parent)]
     dirs += [str(package / inc) for inc in em.rs.attr(target, "includes")]
     for dep in em.rs.labels(target, "deps"):
         dirs += td_includes(em, dep, set())

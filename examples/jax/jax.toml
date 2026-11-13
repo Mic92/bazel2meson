@@ -3,7 +3,7 @@
 name = "jaxlib"
 root = "//jaxlib:_jax"
 
-plugins = ["tablegen", "cc_embed_data", "python_extension"]
+plugins = ["tablegen", "cc_embed_data", "xla_llvm_ir", "python_extension"]
 
 # Names XLA's extensions give repositories that are also modules.
 [repo_aliases]
@@ -23,6 +23,8 @@ values = { compilation_mode = "opt" }
 # Meson has a handler of its own for the name LLVM that wants component names.
 [system.llvm-project]
 dependencies = ["lib:LLVM", "cmake:MLIR:MLIR"]
+# The shared libraries leave TableGen out; only build tools use it.
+targets = { TableGen = ["lib:MLIRTableGen", "lib:LLVMTableGen"] }
 
 [system.abseil-cpp]
 dependencies = ["absl_base", "absl_strings", "absl_status", "absl_statusor", "absl_flat_hash_map", "absl_synchronization", "absl_time"]
@@ -68,9 +70,6 @@ dependencies = ["lib:farmhash"]
 [system.dlpack]
 dependencies = ["cmake:dlpack:dlpack::dlpack"]
 
-[system.eigen_archive]
-dependencies = ["eigen3"]
-
 [system.onednn_async]
 dependencies = ["cmake:dnnl:DNNL::dnnl"]
 
@@ -90,12 +89,14 @@ dependencies = ["cmake:tsl-robin-map:tsl::robin_map"]
 [system.rules_python]
 dependencies = ["python3"]
 
-[system.ml_dtypes_py]
-dependencies = []
-
 # Only numpy's headers are used at build time.
 [system.pypi]
 dependencies = ["numpy"]
+
+# Include paths that only exist in Bazel's view of a dependency, mapped to
+# the header the installed library provides.
+[forward_headers]
+"include/dlpack/dlpack.h" = "dlpack/dlpack.h"
 
 # Built from source: not in nixpkgs, or tied to XLA's LLVM pin.
 [source]
@@ -109,6 +110,10 @@ mpitrampoline = {}
 riegeli = {}
 slinky = {}
 XNNPACK = {}
+# XLA uses internals of a development commit; the 3.4 release lacks them.
+eigen_archive = {}
+# C++ headers of the Python package, which it does not install.
+ml_dtypes_py = {}
 # XLA shares one nanobind between all modules; nixpkgs ships it as sources
 # for CMake projects only.
 nanobind = {}
