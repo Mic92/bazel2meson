@@ -174,6 +174,9 @@ class Emitter:
         self.templates: dict[str, str] = {}
         # Generated .cc files, by owning repository.
         self.generated_sources: dict[str, list[Expr]] = defaultdict(list)
+        # C/C++ sources written by genrules, compiled only where srcs names them.
+        self.genrule_sources: dict[Label, Expr] = {}
+        self.emitted_genrules: set[Label] = set()
 
     # -- paths --------------------------------------------------------------
 
@@ -389,17 +392,41 @@ class Emitter:
     # -- genrule ------------------------------------------------------------
 
     def emit_genrule(self, label: Label, target: Target) -> None:
+        if label in self.emitted_genrules:
+            return
+        self.emitted_genrules.add(label)
         srcs = self.rs.labels(target, "srcs")
         tools = self.rs.labels(target, "tools")
         outs = list(self.rs.attr(target, "outs"))
         cmd = self.rs.attr(target, "cmd", "")
         out_dir = self.build_path(self.directory(label))
 
-        def location(match: re.Match[str]) -> str:
-            item = self.ws.label(match.group(1), label.repo, label.pkg)
+        depends: list[Expr] = []
+        programs: list[Expr] = []
+
+        def produced(item: Label) -> str | None:
+            """Shell word for a file some genrule writes into the build tree."""
+            if item.pkg == label.pkg and item.repo == label.repo and item.name in outs:
+                return f"{out_dir}/{shlex.quote(item.name)}"
+            producer = self.generated(item)
+            if producer is None or self.targets[producer].kind != "genrule":
+                return None
+            # Meson wants a target defined before it is referred to.
+            self.emit_genrule(producer, self.targets[producer])
+            depends.append(var(self.genrule_name(producer)))
+            return self.build_path(f"{self.directory(item)}/{item.name}")
+
+        def word(item: Label) -> str | None:
             path = self.path(item)
             if path is not None:
                 return shlex.quote(path)
+            return produced(item)
+
+        def location(match: re.Match[str]) -> str:
+            item = self.ws.label(match.group(1), label.repo, label.pkg)
+            found = word(item)
+            if found is not None:
+                return found
             tool = self.ws.get(item)
             if tool is not None and tool.kind == "py_binary":
                 main = self.rs.attr(tool, "main") or self.rs.attr(tool, "srcs")[0]
@@ -408,34 +435,49 @@ class Emitter:
                 root = self.settings.repo_dirs[item.repo]
                 script = f"{self.directory(item)}/{main.removeprefix(':')}"
                 return f"PYTHONPATH={shlex.quote(root)} python3 {shlex.quote(script)}"
+            if tool is not None and tool.kind == "cc_binary":
+                program = self.tool(item)
+                if program is not None:
+                    # Passed as an argument; Meson knows where it was built.
+                    programs.append(program)
+                    return f'"${len(programs)}"'
             self.problems["genrule: cannot locate"].add(f"{label}: {match.group(1)}")
             return match.group(0)
 
         cmd = re.sub(r"\./\$\(location ([^)]+)\)", r"$(location \1)", cmd)
         cmd = re.sub(r"\$\((?:location|execpath|rootpath) ([^)]+)\)", location, cmd)
-        src_paths = [p for p in (self.path(s) for s in srcs) if p]
-        cmd = cmd.replace("$<", shlex.quote(src_paths[0]) if src_paths else "")
-        cmd = cmd.replace("$(SRCS)", shlex.join(src_paths))
-        cmd = cmd.replace("$@", f"{out_dir}/{shlex.quote(outs[0])}" if outs else "")
+        src_words = [w for w in (word(s) for s in srcs) if w]
+        out_words = [f"{out_dir}/{shlex.quote(o)}" for o in outs]
+        cmd = cmd.replace("$<", src_words[0] if src_words else "")
+        cmd = cmd.replace("$(SRCS)", " ".join(src_words))
+        cmd = cmd.replace("$(OUTS)", " ".join(out_words))
+        cmd = cmd.replace("$@", out_words[0] if outs else "")
         cmd = cmd.replace("$(@D)", out_dir).replace("$(RULEDIR)", out_dir)
         if re.search(r"(?<!\$)\$\([A-Za-z]", cmd):
             self.problems["genrule: unhandled make variable"].add(str(label))
         cmd = cmd.replace("$$", "$")
-        inputs = src_paths + [p for p in (self.path(t) for t in tools) if p]
-        name = "gen_" + sanitize(f"{self.directory(label)}/{label.name}")
+        inputs = [p for p in (self.path(i) for i in srcs + tools) if p]
+        if self.rs.attr(target, "stamp", 0) == 1:
+            # The workspace status, which a build outside of Bazel has none of.
+            self.extra_files.setdefault("bazel-out/volatile-status.txt", "")
+            self.extra_files.setdefault("bazel-out/stable-status.txt", "")
+        name = self.genrule_name(label)
+        args = self.script(name, cmd.strip())
+        args["command"] = [*args["command"], *programs]
+        if depends:
+            args["depends"] = depends
         self.subdirs[self.directory(label)] += [
-            assign(
-                name,
-                call(
-                    "custom_target",
-                    output=outs,
-                    depend_files=[SOURCE_ROOT / p for p in inputs],
-                    **self.script(name, cmd.strip()),
-                ),
-            ),
-            extend("generated_headers", var(name)),
-            "",
+            assign(name, call("custom_target", output=outs, depend_files=[SOURCE_ROOT / p for p in inputs], **args)),
         ]
+        compilable = {i for i, o in enumerate(outs) if PurePosixPath(o).suffix in SOURCE_SUFFIXES}
+        for i in compilable:
+            self.genrule_sources[Label(label.repo, label.pkg, outs[i])] = var(name)[i]
+        # Meson would compile sources among the outputs wherever they are listed.
+        headers = [var(name)[i] for i in range(len(outs)) if i not in compilable] if compilable else var(name)
+        self.subdirs[self.directory(label)] += [extend("generated_headers", headers), ""]
+
+    def genrule_name(self, label: Label) -> str:
+        return "gen_" + sanitize(f"{self.directory(label)}/{label.name}")
 
     @staticmethod
     def build_path(path: str) -> str:
@@ -484,6 +526,7 @@ class Emitter:
                 if item not in dest:
                     dest.append(item)
 
+        generated_srcs: list[tuple[str, Label]] = []
         for label, target in sorted(self.targets.items()):
             if target.kind in self.handlers:
                 self.handlers[target.kind](label, target)
@@ -494,6 +537,9 @@ class Emitter:
                 ):
                     self.problems[f"unhandled rule kind {target.kind}"].add(str(label))
                 continue
+            if target.kind == "cc_binary" and label not in self.settings.roots:
+                # A tool the build runs, see tool(); not part of the result.
+                continue
             repo_dir = self.settings.repo_dirs[label.repo]
             include_dirs.add(repo_dir)
             unit: str | Label = label if label in modules else label.repo
@@ -503,6 +549,8 @@ class Emitter:
                 path = self.path(src)
                 if path is not None:
                     sources[unit].append(path)
+                elif isinstance(unit, str):
+                    generated_srcs.append((unit, src))
             for stamp in self.rs.labels(target, "linkstamp"):
                 # Bazel compiles linkstamps at link time with the workspace
                 # status as defines; here the status is fixed when generating.
@@ -540,6 +588,9 @@ class Emitter:
                 base = repo_dir if strip.startswith("/") else self.directory(label)
                 include_dirs.add(str(PurePosixPath(base) / strip.lstrip("/")))
 
+        for repo, src in generated_srcs:
+            if src in self.genrule_sources:
+                self.generated_sources[repo].append(self.genrule_sources[src])
         if not any(path.startswith(VIRTUAL_INCLUDES + "/") for path in virtual):
             include_dirs.discard(VIRTUAL_INCLUDES)
         out: dict[str, str] = dict(virtual)
@@ -576,10 +627,17 @@ class Emitter:
             assign("include_dirs", sorted(include_dirs)),
             template("setup.meson"),
             *self.templates.values(),
+            # Meson wants these before the first target, tools included.
+            statement(
+                call(
+                    "add_project_arguments",
+                    ["-D" + d for d in [*defines, *sorted(self.system_defines)]],
+                    language=["c", "cpp"],
+                )
+            ),
             *self.tool_statements,
             *(statement(call("subdir", d)) for d in sorted(self.subdirs)),
             "",
-            assign("project_defines", ["-D" + d for d in [*defines, *sorted(self.system_defines)]]),
             assign("protos_name", f"{sanitize(project)}_protos"),
             template("libraries.meson"),
         ]
@@ -646,16 +704,17 @@ class Emitter:
                 "link_whole": var("libs"),
                 "install": True,
             }
-            if any(d.split("/")[0] == project for d in self.subdirs):
+            program = self.settings.root.name
+            if any(d.split("/")[0] == program for d in self.subdirs):
                 # The build tree has a directory with the executable's name
                 # for generated files, so the executable moves into one of
                 # its own.
                 if "cpp_pch" in args:
                     args["cpp_pch"] = f"../{args['cpp_pch']}"
                 root += [assign("executable_args", args), statement(call("subdir", BIN))]
-                out[f"{BIN}/meson.build"] = statement(call("executable", project, kwargs=var("executable_args")))
+                out[f"{BIN}/meson.build"] = statement(call("executable", program, kwargs=var("executable_args")))
             else:
-                root.append(statement(call("executable", project, **args)))
+                root.append(statement(call("executable", program, **args)))
         root.append("")
         out["meson.build"] = "\n".join(root)
         return out

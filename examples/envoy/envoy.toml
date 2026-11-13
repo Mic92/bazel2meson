@@ -52,8 +52,10 @@ dependencies = ["grpc++"]
 [system.boringssl]
 dependencies = ["lib:ssl", "lib:crypto"]
 
+# Envoy builds zlib-ng in its zlib-compatible mode, so it only uses the zlib
+# API. The installed gRPC and protobuf already load zlib itself.
 [system.zlib-ng]
-dependencies = ["zlib-ng"]
+dependencies = ["zlib"]
 
 [system.brotli]
 targets = { brotlidec = ["libbrotlidec"], brotlienc = ["libbrotlienc"] }

@@ -25,6 +25,11 @@
           default = bazel2meson;
           envoy = pkgs.callPackage ./examples/envoy/package.nix { inherit bazel2meson; };
           bant = pkgs.callPackage ./examples/bant/package.nix { inherit bazel2meson; };
+          protoc-gen-js = pkgs.callPackage ./examples/protoc-gen-js/package.nix { inherit bazel2meson; };
+          perf_data_converter = pkgs.callPackage ./examples/perf_data_converter/package.nix {
+            inherit bazel2meson;
+          };
+          verible = pkgs.callPackage ./examples/verible/package.nix { inherit bazel2meson; };
           jaxlib = pkgs.callPackage ./examples/jax/package.nix { inherit bazel2meson; };
         }
       );

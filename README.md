@@ -15,8 +15,10 @@ upstream release means bumping the pin and re-running the generator.
 
 **Status: work in progress.** The examples:
 
-- [bant](examples/bant): builds and runs; every dependency is an installed
-  library. `nix build .#bant`
+- [bant](examples/bant), [protoc-gen-js](examples/protoc-gen-js),
+  [perf_data_converter](examples/perf_data_converter) and
+  [verible](examples/verible) (its formatter): build and run; every
+  dependency is an installed library. `nix build .#bant`
 - [Envoy](examples/envoy): the test bed; compiles, not linked yet.
 - [jaxlib](examples/jax): generates, not compiled yet.
 

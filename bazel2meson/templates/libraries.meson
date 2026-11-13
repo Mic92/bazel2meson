@@ -1,10 +1,8 @@
 # Everything the per-repository libraries share. Inputs:
 #   include_dirs     include directories relative to the source root
-#   project_defines  preprocessor defines for all targets
 #   protos_name      name of the library holding all generated proto code
 
 inc = include_directories(include_dirs)
-add_project_arguments(project_defines, language: ['c', 'cpp'])
 protos = static_library(protos_name, proto_sources, include_directories: inc, dependencies: deps)
 # Only the headers: the libraries below are merged into the executable, which
 # links the proto code itself. Passing it through each library would link it

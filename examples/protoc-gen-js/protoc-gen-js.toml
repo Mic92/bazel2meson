@@ -1,0 +1,16 @@
+# protoc-gen-js, the JavaScript code generator plugin for protoc.
+
+name = "protoc-gen-js"
+root = "//generator:protoc-gen-js"
+
+[config]
+values = { compilation_mode = "opt" }
+
+[system.abseil-cpp]
+dependencies = ["absl_base", "absl_strings", "absl_status", "absl_statusor", "absl_flat_hash_map", "absl_synchronization", "absl_time"]
+template = "absl_{name}"
+optional = true
+
+# libprotoc carries the code generator interface.
+[system.protobuf]
+dependencies = ["protobuf", "lib:protoc"]

@@ -30,7 +30,7 @@
   tclap,
   xxhash,
   yaml-cpp,
-  zlib-ng,
+  zlib,
   zstd,
 }:
 
@@ -95,7 +95,7 @@ stdenv.mkDerivation {
     tclap
     xxhash
     yaml-cpp
-    zlib-ng
+    zlib
     zstd
   ];
 
@@ -120,6 +120,11 @@ stdenv.mkDerivation {
       --version ${version} \
       --revision ${revision} \
       ${lib.concatMapStringsSep " " (name: "--repo ${name}=external/${name}") (lib.attrNames modules)}
+  '';
+
+  # Bazel names the binary after its target.
+  postInstall = ''
+    mv $out/bin/envoy-static $out/bin/envoy
   '';
 
   passthru = { inherit modules; };

@@ -1,0 +1,24 @@
+# perf_to_profile, converting Linux perf data to pprof profiles.
+
+name = "perf_data_converter"
+root = "//src:perf_to_profile"
+
+[config]
+values = { compilation_mode = "opt" }
+
+[system.abseil-cpp]
+dependencies = ["absl_base", "absl_strings", "absl_status", "absl_statusor", "absl_flat_hash_map", "absl_synchronization", "absl_time"]
+template = "absl_{name}"
+optional = true
+
+[system.protobuf]
+dependencies = ["protobuf"]
+
+[system.boringssl]
+dependencies = ["lib:ssl", "lib:crypto"]
+
+[system.gflags]
+dependencies = ["gflags"]
+
+[system.zlib]
+dependencies = ["zlib"]

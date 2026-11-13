@@ -1,0 +1,33 @@
+# Verible, the SystemVerilog parser, formatter, linter and language server.
+
+name = "verible"
+root = "//verible/verilog/tools/formatter:verible-verilog-format"
+
+[config]
+values = { compilation_mode = "opt" }
+
+# flex and bison from PATH; the default is Bazel toolchains for them.
+[config.flags]
+"//bazel:use_local_flex_bison" = true
+
+# The flags and log libraries are named after their Bazel package as well.
+[system.abseil-cpp]
+dependencies = ["absl_base", "absl_strings", "absl_status", "absl_statusor", "absl_flat_hash_map", "absl_synchronization", "absl_time", "absl_flags", "absl_flags_parse", "absl_flags_usage", "absl_log", "absl_log_initialize"]
+template = "absl_{name}"
+optional = true
+
+[system.protobuf]
+dependencies = ["protobuf"]
+
+[system.re2]
+dependencies = ["re2"]
+
+[system.nlohmann_json]
+dependencies = ["nlohmann_json"]
+
+[system.zlib]
+dependencies = ["zlib"]
+
+# Only FlexLexer.h, which flex installs.
+[system.rules_flex]
+dependencies = []
