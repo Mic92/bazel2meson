@@ -3,10 +3,16 @@
 name = "envoy"
 root = "//source/exe:envoy-static"
 
+# Translations for rules beyond the standard C++/proto/genrule set; see
+# bazel2meson/plugins. A name ending in .py is a file next to this one.
+plugins = ["protoc_gen_validate", "cel_cpp"]
+
 # Targets left out of the build.
 exclude = [
   # Needs a Rust static library built with cargo, which is not wired up yet.
   "//source/extensions/dynamic_modules/builtin_extensions:hickory_dns_static",
+  # Google ALTS uses gRPC-internal headers that an installed gRPC lacks.
+  "//source/extensions/transport_sockets/alts:config",
 ]
 
 # Repositories created by module extensions that duplicate a module.
@@ -61,9 +67,6 @@ dependencies = ["flatbuffers"]
 [system.fmt]
 dependencies = ["fmt"]
 
-[system.libevent]
-dependencies = ["libevent", "libevent_pthreads"]
-
 [system.libmaxminddb]
 dependencies = ["libmaxminddb"]
 
@@ -76,9 +79,6 @@ dependencies = ["luajit"]
 [system.msgpack-c]
 dependencies = ["msgpack-cxx"]
 
-[system.nghttp2]
-dependencies = ["libnghttp2"]
-
 [system.nlohmann_json]
 dependencies = ["nlohmann_json"]
 
@@ -88,8 +88,10 @@ dependencies = ["opentelemetry_api"]
 [system.re2]
 dependencies = ["re2"]
 
+# Envoy reaches into parts of spdlog that only its header-only mode exposes.
 [system.spdlog]
-dependencies = ["spdlog"]
+dependencies = ["includes:spdlog"]
+defines = ["SPDLOG_FMT_EXTERNAL"]
 
 [system.tclap]
 dependencies = ["tclap"]
@@ -101,10 +103,23 @@ dependencies = ["libxxhash"]
 dependencies = ["yaml-cpp"]
 
 [system.antlr4-cpp-runtime]
-dependencies = ["lib:antlr4-runtime"]
+dependencies = ["cmake:antlr4-runtime:antlr4_shared"]
 
 [system.zstd]
 dependencies = ["libzstd"]
+
+# Envoy includes code generated from protos in gRPC's source tree, which the
+# installed gRPC library does not ship.
+[[extra_protos]]
+root = "external/grpc"
+files = ["src/proto/grpc/health/v1/health.proto"]
+
+# Include paths that only exist in Bazel's view of a dependency, mapped to
+# the header the installed library provides.
+[forward_headers]
+"include/nlohmann/json.hpp" = "nlohmann/json.hpp"
+"third_party/utf8_range/utf8_validity.h" = "utf8_validity.h"
+"src/google/protobuf/util/field_mask_util.h" = "google/protobuf/util/field_mask_util.h"
 
 # Repositories are named after their Bazel module.
 
@@ -119,6 +134,9 @@ googleurl = {}
 grpc-httpjson-transcoding = {}
 hessian2-codec = {}
 libcircllhist = {}
+libevent = {}
+# Envoy patches two extra options into nghttp2.
+nghttp2 = {}
 opentelemetry-proto = {}
 prometheus-metrics-model = {}
 proto-converter = {}

@@ -1,22 +1,5 @@
 {
   "nodes": {
-    "envoy": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1793063608,
-        "narHash": "sha256-Ni+vX3rqo8s7000IPjzg2B7smtFm3SQF501tdRZAv4M=",
-        "owner": "envoyproxy",
-        "repo": "envoy",
-        "rev": "b2d89e0ae53916f28770771fbdd49c5c99c5c5a2",
-        "type": "github"
-      },
-      "original": {
-        "owner": "envoyproxy",
-        "ref": "v1.40.2",
-        "repo": "envoy",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1794386569,
@@ -35,7 +18,6 @@
     },
     "root": {
       "inputs": {
-        "envoy": "envoy",
         "nixpkgs": "nixpkgs"
       }
     }

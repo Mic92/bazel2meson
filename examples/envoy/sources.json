@@ -14,7 +14,9 @@
       }
     ],
     "stripPrefix": "cel-cpp-0.16.1",
-    "url": "https://github.com/cel-expr/cel-cpp/archive/refs/tags/v0.16.1.tar.gz",
+    "urls": [
+      "https://github.com/cel-expr/cel-cpp/archive/refs/tags/v0.16.1.tar.gz"
+    ],
     "version": "0.16.1.envoy"
   },
   "cel-spec": {
@@ -32,7 +34,9 @@
       }
     ],
     "stripPrefix": "cel-spec-0.25.1",
-    "url": "https://github.com/google/cel-spec/archive/refs/tags/v0.25.1.tar.gz",
+    "urls": [
+      "https://github.com/google/cel-spec/archive/refs/tags/v0.25.1.tar.gz"
+    ],
     "version": "0.25.1"
   },
   "cpp2sky": {
@@ -50,7 +54,9 @@
       }
     ],
     "stripPrefix": "cpp2sky-0.6.0",
-    "url": "https://github.com/SkyAPM/cpp2sky/archive/v0.6.0.tar.gz",
+    "urls": [
+      "https://github.com/SkyAPM/cpp2sky/archive/v0.6.0.tar.gz"
+    ],
     "version": "0.6.0.envoy"
   },
   "dd-trace-cpp": {
@@ -63,7 +69,9 @@
     "patchStrip": 0,
     "patches": [],
     "stripPrefix": "dd-trace-cpp-2.1.1",
-    "url": "https://github.com/DataDog/dd-trace-cpp/archive/v2.1.1.tar.gz",
+    "urls": [
+      "https://github.com/DataDog/dd-trace-cpp/archive/v2.1.1.tar.gz"
+    ],
     "version": "2.1.1.envoy"
   },
   "googleapis": {
@@ -116,7 +124,9 @@
       }
     ],
     "stripPrefix": "googleapis-2193a2bfcecb92b92aad7a4d81baa428cafd7dfd",
-    "url": "https://github.com/googleapis/googleapis/archive/2193a2bfcecb92b92aad7a4d81baa428cafd7dfd.zip",
+    "urls": [
+      "https://github.com/googleapis/googleapis/archive/2193a2bfcecb92b92aad7a4d81baa428cafd7dfd.zip"
+    ],
     "version": "0.0.0-20251003-2193a2bf"
   },
   "googleurl": {
@@ -134,7 +144,9 @@
       }
     ],
     "stripPrefix": "gurl-dd4080fec0b443296c0ed0036e1e776df8813aa7",
-    "url": "https://github.com/google/gurl/archive/dd4080fec0b443296c0ed0036e1e776df8813aa7.tar.gz",
+    "urls": [
+      "https://github.com/google/gurl/archive/dd4080fec0b443296c0ed0036e1e776df8813aa7.tar.gz"
+    ],
     "version": "0.0.0-221103-dd4080f.envoy"
   },
   "grpc-httpjson-transcoding": {
@@ -160,7 +172,9 @@
       }
     ],
     "stripPrefix": "grpc-httpjson-transcoding-a6e226f9a2e656a973df3ad48f0ee5efacce1a28",
-    "url": "https://github.com/grpc-ecosystem/grpc-httpjson-transcoding/archive/a6e226f9a2e656a973df3ad48f0ee5efacce1a28.tar.gz",
+    "urls": [
+      "https://github.com/grpc-ecosystem/grpc-httpjson-transcoding/archive/a6e226f9a2e656a973df3ad48f0ee5efacce1a28.tar.gz"
+    ],
     "version": "0.0.0-20250507-a6e226f.envoy"
   },
   "hessian2-codec": {
@@ -173,7 +187,9 @@
     "patchStrip": 0,
     "patches": [],
     "stripPrefix": "hessian2-codec-6f5a64770f0374a761eece13c8863b80dc5adcd8",
-    "url": "https://github.com/alibaba/hessian2-codec/archive/6f5a64770f0374a761eece13c8863b80dc5adcd8.tar.gz",
+    "urls": [
+      "https://github.com/alibaba/hessian2-codec/archive/6f5a64770f0374a761eece13c8863b80dc5adcd8.tar.gz"
+    ],
     "version": "0.0.0-250114-6f5a647.envoy"
   },
   "libcircllhist": {
@@ -197,8 +213,166 @@
     "patchStrip": 0,
     "patches": [],
     "stripPrefix": "libcircllhist-py-0.3.2",
-    "url": "https://github.com/openhistogram/libcircllhist/archive/refs/tags/py-0.3.2.tar.gz",
+    "urls": [
+      "https://github.com/openhistogram/libcircllhist/archive/refs/tags/py-0.3.2.tar.gz"
+    ],
     "version": "0.3.2.envoy"
+  },
+  "libevent": {
+    "hash": "sha256-8KHq04P7SZLN6S3+qIoZ5D2BmLWSk45FTaH1t9vDnak=",
+    "moduleFile": {
+      "sha256": "c48ae76869f4b3eb10706706342071f946991e7813086658ebcb57dedf8f06e8",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/MODULE.bazel"
+    },
+    "overlay": [
+      {
+        "hash": "sha256-//NLhc42JAFaP6UVNW4MCYnoHbfGj9QIceTZp2HgjM8=",
+        "path": "BUILD.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/BUILD.bazel"
+      },
+      {
+        "hash": "sha256-7UbnkQwzRqS0Ie6T1yg3lvgPtUwmPhjLUk3AGSylnuE=",
+        "path": "WIN32-Code/BUILD.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/WIN32-Code/BUILD.bazel"
+      },
+      {
+        "hash": "sha256-26hzdd3vMmV43OSB6m5wRfC88SASt4sSd/V4aOj+RhU=",
+        "path": "compat/BUILD.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/compat/BUILD.bazel"
+      },
+      {
+        "hash": "sha256-LIvjuDCAT/2R+g9+y/xC/p0LcLRJ70GkbuXQS/hID2w=",
+        "path": "evconfig-private.h",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/evconfig-private.h"
+      },
+      {
+        "hash": "sha256-ovsormMK+0+PzlSA0cZxC5pm0AA5+ILEyC79UdHyTlY=",
+        "path": "evconfig-private_android.h",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/evconfig-private_android.h"
+      },
+      {
+        "hash": "sha256-3hSGZxKD9JfDy0O1Z2kYZnykPPmfx0bs+mGnvHHb/K8=",
+        "path": "evconfig-private_apple.h",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/evconfig-private_apple.h"
+      },
+      {
+        "hash": "sha256-VyLJxZ9ek98XQPiCsBUL7jrGsFe/ivo93EXKRmqZ6oY=",
+        "path": "evconfig-private_linux.h",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/evconfig-private_linux.h"
+      },
+      {
+        "hash": "sha256-Vcnk2XHha7rU/SEdzpq/qp6ebbHp1dOEP8mvfiQJ1RU=",
+        "path": "event2-config_android.h",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/event2-config_android.h"
+      },
+      {
+        "hash": "sha256-J1eJnhZ3WGS9D4uqdGOM+3sb/dljrUURWAOBfy42MvA=",
+        "path": "event2-config_apple.h",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/event2-config_apple.h"
+      },
+      {
+        "hash": "sha256-PrfSaVf9jSMVd4rnPQT3vbGvQm+6LWBgqXkw5YsFhgY=",
+        "path": "event2-config_common.h",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/event2-config_common.h"
+      },
+      {
+        "hash": "sha256-UWyH+aUxEBLF/SlZJinyIWri9gG1NeYE1yioABwGqeM=",
+        "path": "event2-config_linux.h",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/event2-config_linux.h"
+      },
+      {
+        "hash": "sha256-wIon2cHHhCEfsbPGigkiHrRhwQIsYYHqdIO5qhjSALc=",
+        "path": "event2-config_msvc.h",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/event2-config_msvc.h"
+      },
+      {
+        "hash": "sha256-HblJnJK+aX/L4Tj2hG3db/riQw5y8tvQQFZ3whbeTmI=",
+        "path": "include/event2/event-config.h",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/include/event2/event-config.h"
+      },
+      {
+        "hash": "sha256-iEZQLW9ACw6pPprSP4In0j7AujzF4rs1as7eOMNypwo=",
+        "path": "sample/BUILD.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/sample/BUILD.bazel"
+      },
+      {
+        "hash": "sha256-r7UHPBK0y3sH6LS2S+ooITcLM8qM3BC8TrSzC1dTfi0=",
+        "path": "test/BUILD.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/test/BUILD.bazel"
+      },
+      {
+        "hash": "sha256-FXkIk9oyNISnD18qr8v0+tWIAWioGd5ZZXwIFTKkbtc=",
+        "path": "test/test-config.c",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/libevent/2.2.2-alpha.envoy/overlay/test/test-config.c"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "libevent-release-2.2.2-alpha",
+    "urls": [
+      "https://github.com/libevent/libevent/archive/release-2.2.2-alpha.tar.gz"
+    ],
+    "version": "2.2.2-alpha.envoy"
+  },
+  "nghttp2": {
+    "hash": "sha256-4XhodzDCB/OmWXMAlt8ZK1LTdSeGwGi45e56647a4Fo=",
+    "moduleFile": {
+      "sha256": "49c64a0d1d580d72ba543506540bafa9ebcac9fc9899d1d6b83a0c701f3085b1",
+      "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/nghttp2/1.66.0.envoy/MODULE.bazel"
+    },
+    "overlay": [
+      {
+        "hash": "sha256-6crOWZbwrSXyOuoOqUPvlMcQnfKHEhFqdJ9cGPQqSro=",
+        "path": "BUILD.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/nghttp2/1.66.0.envoy/overlay/BUILD.bazel"
+      },
+      {
+        "hash": "sha256-ScZKDR1YDXK6VDUGVAuvqevKyfyYmdHWuDoMcB8whbE=",
+        "path": "MODULE.bazel",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/nghttp2/1.66.0.envoy/overlay/MODULE.bazel"
+      },
+      {
+        "hash": "sha256-ionfCCUf7G0RP+Ae+9PyGof5bAGYtcha5tDCEY7wHUQ=",
+        "path": "config/config.h",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/nghttp2/1.66.0.envoy/overlay/config/config.h"
+      }
+    ],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "hash": "sha256-XQTQH0EJzv+6EZKfCzGeNB3JPCthlcBraERW5O7o5M8=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/nghttp2/1.66.0.envoy/patches/nghttp2.patch"
+      },
+      {
+        "hash": "sha256-drOOnUUbMMKZOb/PSEss5wgQHPz7NxC9N3FbI2kRGsk=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/nghttp2/1.66.0.envoy/patches/nghttp2_huffman.patch"
+      },
+      {
+        "hash": "sha256-PTK9qQ980qxv3gDTzo0ieZkLGyu/4h/kDdnpCSVTFps=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/nghttp2/1.66.0.envoy/patches/nghttp2_max_hd_nv.patch"
+      },
+      {
+        "hash": "sha256-uP6XDA6mDr3OD0rkSzOrC2vbTKJrypeWgt1SUo9z4w4=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/nghttp2/1.66.0.envoy/patches/nghttp2-CVE-2026-27135_part1.patch"
+      },
+      {
+        "hash": "sha256-uqsmDjz0RqyJbiWOeYzlzOm6sQSX/8S3un+LGeHFuxU=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/nghttp2/1.66.0.envoy/patches/nghttp2-CVE-2026-27135_part2.patch"
+      },
+      {
+        "hash": "sha256-7Qc6TW2WUmS5hLYdJTNBJzXLXB2fALRwkKPPVmZ4xc4=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/nghttp2/1.66.0.envoy/patches/nghttp2-CVE-2026-27135_part3.patch"
+      },
+      {
+        "hash": "sha256-PH8aB8sbDFd5//xroqGJc3MaYRDwIRJKClbxtWDOl5U=",
+        "url": "https://raw.githubusercontent.com/envoyproxy/bazel-registry/8ef390e133ec41491e397681c91c30e9cda1395a/modules/nghttp2/1.66.0.envoy/patches/nghttp2-CVE-2026-27135_part4.patch"
+      }
+    ],
+    "stripPrefix": "nghttp2-1.66.0",
+    "urls": [
+      "https://github.com/nghttp2/nghttp2/releases/download/v1.66.0/nghttp2-1.66.0.tar.gz"
+    ],
+    "version": "1.66.0.envoy"
   },
   "ocp-diag-core": {
     "hash": "sha256-uDuOp6k3zn9daHBCG+j5pTQ+jC3ivS4mlFKYHWfaFQk=",
@@ -221,7 +395,9 @@
     "patchStrip": 0,
     "patches": [],
     "stripPrefix": "ocp-diag-core-e965ac0ac6db6686169678e2a6c77ede904fa82c/apis/c++",
-    "url": "https://github.com/opencomputeproject/ocp-diag-core/archive/e965ac0ac6db6686169678e2a6c77ede904fa82c.zip",
+    "urls": [
+      "https://github.com/opencomputeproject/ocp-diag-core/archive/e965ac0ac6db6686169678e2a6c77ede904fa82c.zip"
+    ],
     "version": "0.0.0-230505-e965ac0.envoy"
   },
   "opentelemetry-proto": {
@@ -245,7 +421,9 @@
     "patchStrip": 1,
     "patches": [],
     "stripPrefix": "opentelemetry-proto-1.8.0",
-    "url": "https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v1.8.0.tar.gz",
+    "urls": [
+      "https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v1.8.0.tar.gz"
+    ],
     "version": "1.8.0"
   },
   "prometheus-metrics-model": {
@@ -264,7 +442,9 @@
     "patchStrip": 0,
     "patches": [],
     "stripPrefix": "client_model-0.6.2",
-    "url": "https://github.com/prometheus/client_model/archive/v0.6.2.tar.gz",
+    "urls": [
+      "https://github.com/prometheus/client_model/archive/v0.6.2.tar.gz"
+    ],
     "version": "0.6.2.envoy"
   },
   "proto-converter": {
@@ -286,7 +466,9 @@
       }
     ],
     "stripPrefix": "proto-converter-385076472517e4e006cfb7a2c5401b918c233d7d",
-    "url": "https://github.com/grpc-ecosystem/proto-converter/archive/385076472517e4e006cfb7a2c5401b918c233d7d.zip",
+    "urls": [
+      "https://github.com/grpc-ecosystem/proto-converter/archive/385076472517e4e006cfb7a2c5401b918c233d7d.zip"
+    ],
     "version": "0.0.0-20260912-3850764.envoy"
   },
   "proto-field-extraction": {
@@ -312,7 +494,9 @@
       }
     ],
     "stripPrefix": "proto-field-extraction-d5d39f0373e9b6691c32c85929838b1006bcb3fb",
-    "url": "https://github.com/grpc-ecosystem/proto-field-extraction/archive/d5d39f0373e9b6691c32c85929838b1006bcb3fb.zip",
+    "urls": [
+      "https://github.com/grpc-ecosystem/proto-field-extraction/archive/d5d39f0373e9b6691c32c85929838b1006bcb3fb.zip"
+    ],
     "version": "0.0.0-240710-d5d39f0.envoy"
   },
   "proto-processing": {
@@ -346,7 +530,9 @@
       }
     ],
     "stripPrefix": "proto_processing_lib-279353cfab372ac7f268ae529df29c4d546ca18d",
-    "url": "https://github.com/grpc-ecosystem/proto_processing_lib/archive/279353cfab372ac7f268ae529df29c4d546ca18d.zip",
+    "urls": [
+      "https://github.com/grpc-ecosystem/proto_processing_lib/archive/279353cfab372ac7f268ae529df29c4d546ca18d.zip"
+    ],
     "version": "0.0.0-250110-279353c.envoy"
   },
   "protoc-gen-validate": {
@@ -372,7 +558,9 @@
       }
     ],
     "stripPrefix": "protoc-gen-validate-1.3.3",
-    "url": "https://github.com/bufbuild/protoc-gen-validate/archive/refs/tags/v1.3.3.tar.gz",
+    "urls": [
+      "https://github.com/bufbuild/protoc-gen-validate/archive/refs/tags/v1.3.3.tar.gz"
+    ],
     "version": "1.3.3.envoy"
   },
   "proxy-wasm-cpp-host": {
@@ -390,7 +578,9 @@
       }
     ],
     "stripPrefix": "proxy-wasm-cpp-host-f2db56af443571e92a31c0b877106d9ea96e19ef",
-    "url": "https://github.com/proxy-wasm/proxy-wasm-cpp-host/archive/f2db56af443571e92a31c0b877106d9ea96e19ef.tar.gz",
+    "urls": [
+      "https://github.com/proxy-wasm/proxy-wasm-cpp-host/archive/f2db56af443571e92a31c0b877106d9ea96e19ef.tar.gz"
+    ],
     "version": "0.0.0-260704-f2db56a.envoy"
   },
   "proxy-wasm-cpp-sdk": {
@@ -412,7 +602,9 @@
       }
     ],
     "stripPrefix": "proxy-wasm-cpp-sdk-e5256b0c5463ea9961965ad5de3e379e00486640",
-    "url": "https://github.com/proxy-wasm/proxy-wasm-cpp-sdk/archive/e5256b0c5463ea9961965ad5de3e379e00486640.tar.gz",
+    "urls": [
+      "https://github.com/proxy-wasm/proxy-wasm-cpp-sdk/archive/e5256b0c5463ea9961965ad5de3e379e00486640.tar.gz"
+    ],
     "version": "0.0.0-250925-e5256b0.envoy"
   },
   "quiche": {
@@ -455,7 +647,9 @@
       }
     ],
     "stripPrefix": "quiche-9e60ac2b905a435555e071f403e9418ce11c773f",
-    "url": "https://github.com/google/quiche/archive/9e60ac2b905a435555e071f403e9418ce11c773f.tar.gz",
+    "urls": [
+      "https://github.com/google/quiche/archive/9e60ac2b905a435555e071f403e9418ce11c773f.tar.gz"
+    ],
     "version": "0.0.0-261006-9e60ac2.envoy"
   },
   "skywalking-data-collect-protocol": {
@@ -468,7 +662,9 @@
     "patchStrip": 0,
     "patches": [],
     "stripPrefix": "skywalking-data-collect-protocol-10.4.0",
-    "url": "https://github.com/apache/skywalking-data-collect-protocol/archive/v10.4.0.tar.gz",
+    "urls": [
+      "https://github.com/apache/skywalking-data-collect-protocol/archive/v10.4.0.tar.gz"
+    ],
     "version": "10.4.0.envoy"
   },
   "wuffs": {
@@ -487,7 +683,9 @@
     "patchStrip": 0,
     "patches": [],
     "stripPrefix": "wuffs-mirror-release-c-0.4.0-alpha.9",
-    "url": "https://github.com/google/wuffs-mirror-release-c/archive/refs/tags/v0.4.0-alpha.9.tar.gz",
+    "urls": [
+      "https://github.com/google/wuffs-mirror-release-c/archive/refs/tags/v0.4.0-alpha.9.tar.gz"
+    ],
     "version": "0.4.0-alpha.9.envoy"
   },
   "xds": {
@@ -505,7 +703,9 @@
       }
     ],
     "stripPrefix": "xds-ee656c7534f5d7dc23d44dd611689568f72017a6",
-    "url": "https://github.com/cncf/xds/archive/ee656c7534f5d7dc23d44dd611689568f72017a6.tar.gz",
+    "urls": [
+      "https://github.com/cncf/xds/archive/ee656c7534f5d7dc23d44dd611689568f72017a6.tar.gz"
+    ],
     "version": "0.0.0-20251210-ee656c7"
   },
   "zipkin-api": {
@@ -523,7 +723,9 @@
       }
     ],
     "stripPrefix": "zipkin-api-1.0.0",
-    "url": "https://github.com/openzipkin/zipkin-api/archive/refs/tags/1.0.0.tar.gz",
+    "urls": [
+      "https://github.com/openzipkin/zipkin-api/archive/refs/tags/1.0.0.tar.gz"
+    ],
     "version": "1.0.0.bcr.1"
   }
 }

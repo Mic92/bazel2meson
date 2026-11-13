@@ -1,8 +1,20 @@
+[build-system]
+requires = ["uv_build>=0.13.4,<0.14"]
+build-backend = "uv_build"
+
 [project]
 name = "bazel2meson"
 version = "0.1.0"
-description = "Translate Envoy's Bazel build into a Meson build"
+description = "Generate a Meson build from a project's Bazel build files"
+readme = "README.md"
 requires-python = ">=3.13"
+
+[project.scripts]
+bazel2meson = "bazel2meson.__main__:main"
+bazel2meson-lock = "bazel2meson.lock:main"
+
+[tool.uv.build-backend]
+module-root = ""
 
 [tool.ruff]
 line-length = 120

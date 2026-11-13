@@ -1,0 +1,109 @@
+# jaxlib's native extension modules, CPU only. Work in progress.
+
+name = "jaxlib"
+root = "//jaxlib:_jax"
+
+plugins = ["tablegen"]
+
+# Names XLA's extensions give repositories that are also modules.
+[repo_aliases]
+com_google_absl = "abseil-cpp"
+com_google_protobuf = "protobuf"
+com_googlesource_code_re2 = "re2"
+com_github_grpc_grpc = "grpc"
+
+[repos]
+tsl = "external/xla/third_party/tsl"
+
+[config]
+values = { compilation_mode = "opt" }
+
+# Installed libraries. XLA pins LLVM to a development commit; nixpkgs'
+# llvmPackages_git is close to it.
+[system.llvm-project]
+dependencies = ["cmake:LLVM:LLVM", "cmake:MLIR:MLIR"]
+
+[system.abseil-cpp]
+dependencies = ["absl_base", "absl_strings", "absl_status", "absl_statusor", "absl_flat_hash_map", "absl_synchronization", "absl_time"]
+template = "absl_{name}"
+optional = true
+
+[system.protobuf]
+dependencies = ["protobuf"]
+
+[system.grpc]
+dependencies = ["grpc++"]
+
+[system.boringssl]
+dependencies = ["lib:ssl", "lib:crypto"]
+
+[system.re2]
+dependencies = ["re2"]
+
+[system.zlib]
+dependencies = ["zlib"]
+
+[system.snappy]
+dependencies = ["snappy"]
+
+[system.curl]
+dependencies = ["libcurl"]
+
+[system.jsoncpp]
+dependencies = ["jsoncpp"]
+
+[system.org_sqlite]
+dependencies = ["sqlite3"]
+
+[system.highway]
+dependencies = ["libhwy"]
+
+[system.hwloc]
+dependencies = ["hwloc"]
+
+[system.farmhash_archive]
+dependencies = ["lib:farmhash"]
+
+[system.dlpack]
+dependencies = ["cmake:dlpack:dlpack::dlpack"]
+
+[system.eigen_archive]
+dependencies = ["eigen3"]
+
+[system.onednn_async]
+dependencies = ["cmake:dnnl:DNNL::dnnl"]
+
+[system.nanobind]
+dependencies = ["cmake:nanobind:nanobind-static"]
+
+[system.brotli]
+targets = { brotlidec = ["libbrotlidec"], brotlienc = ["libbrotlienc"] }
+
+[system.zstd]
+dependencies = ["libzstd"]
+
+[system.cpuinfo]
+dependencies = ["libcpuinfo"]
+
+# Python itself and its packages.
+[system.rules_python]
+dependencies = ["python3-embed"]
+
+[system.ml_dtypes_py]
+dependencies = []
+
+[system.pypi]
+dependencies = []
+
+# Built from source: not in nixpkgs, or tied to XLA's LLVM pin.
+[source]
+xla = {}
+stablehlo = {}
+shardy = {}
+gloo = {}
+ducc = {}
+highwayhash = {}
+mpitrampoline = {}
+riegeli = {}
+slinky = {}
+XNNPACK = {}

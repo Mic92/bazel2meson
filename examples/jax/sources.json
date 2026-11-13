@@ -1,0 +1,208 @@
+{
+  "XNNPACK": {
+    "hash": "sha256-y0haD+dt7CQ1aOxs5sC3XhiQntffVFmSG0bqraMy/o8=",
+    "overlay": [],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "XNNPACK-0a66ebb5817fce48df605451444dcfc27a5e4ee4",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/XNNPACK/archive/0a66ebb5817fce48df605451444dcfc27a5e4ee4.zip",
+      "https://github.com/google/XNNPACK/archive/0a66ebb5817fce48df605451444dcfc27a5e4ee4.zip"
+    ],
+    "version": "0a66ebb5817fce48df605451444dcfc27a5e4ee4"
+  },
+  "ducc": {
+    "hash": "sha256-B3z0vQvX7dqmZJoCQoX/+W4mYsXm8vtu1cV3H53gk/M=",
+    "overlay": [
+      {
+        "file": "third_party/ducc/ducc0_custom_lowlevel_threading.h",
+        "path": "google/ducc0_custom_lowlevel_threading.h",
+        "repo": "xla"
+      },
+      {
+        "file": "third_party/ducc/fft.h",
+        "path": "google/fft.h",
+        "repo": "xla"
+      },
+      {
+        "file": "third_party/ducc/fft.cc",
+        "path": "google/fft.cc",
+        "repo": "xla"
+      },
+      {
+        "file": "third_party/ducc/threading.cc",
+        "path": "google/threading.cc",
+        "repo": "xla"
+      },
+      {
+        "file": "third_party/ducc/threading.h",
+        "path": "google/threading.h",
+        "repo": "xla"
+      },
+      {
+        "file": "third_party/ducc/ducc.BUILD",
+        "path": "BUILD.bazel",
+        "repo": "xla"
+      }
+    ],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "file": "third_party/ducc/thread_map_work_stealing.patch",
+        "repo": "xla"
+      }
+    ],
+    "stripPrefix": "ducc-aa46a4c21e440b3d416c16eca3c96df19c74f316",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/gitlab.mpcdf.mpg.de/mtr/ducc/-/archive/aa46a4c21e440b3d416c16eca3c96df19c74f316/ducc-aa46a4c21e440b3d416c16eca3c96df19c74f316.tar.gz",
+      "https://gitlab.mpcdf.mpg.de/mtr/ducc/-/archive/aa46a4c21e440b3d416c16eca3c96df19c74f316/ducc-aa46a4c21e440b3d416c16eca3c96df19c74f316.tar.gz"
+    ],
+    "version": "aa46a4c21e440b3d416c16eca3c96df19c74f316"
+  },
+  "gloo": {
+    "hash": "sha256-YQiTYdvbydb3XilxSDabE/YVo+a3jeG+VsznTKL2SUA=",
+    "overlay": [
+      {
+        "file": "third_party/gloo/gloo.BUILD",
+        "path": "BUILD.bazel",
+        "repo": "xla"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "gloo-54cbae0d3a67fa890b4c3d9ee162b7860315e341",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/facebookincubator/gloo/archive/54cbae0d3a67fa890b4c3d9ee162b7860315e341.tar.gz",
+      "https://github.com/facebookincubator/gloo/archive/54cbae0d3a67fa890b4c3d9ee162b7860315e341.tar.gz"
+    ],
+    "version": "54cbae0d3a67fa890b4c3d9ee162b7860315e341"
+  },
+  "highwayhash": {
+    "hash": "sha256-wOK5kx+8zjv7zXmZw8EU9ASsD4uJd1pbvMvKpQGGjlg=",
+    "overlay": [
+      {
+        "file": "third_party/highwayhash/highwayhash.BUILD",
+        "path": "BUILD.bazel",
+        "repo": "xla"
+      }
+    ],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "highwayhash-c13d28517a4db259d738ea4886b1f00352a3cc33",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/highwayhash/archive/c13d28517a4db259d738ea4886b1f00352a3cc33.tar.gz",
+      "https://github.com/google/highwayhash/archive/c13d28517a4db259d738ea4886b1f00352a3cc33.tar.gz"
+    ],
+    "version": "c13d28517a4db259d738ea4886b1f00352a3cc33"
+  },
+  "mpitrampoline": {
+    "hash": "sha256-WjZlYgXEcr22Ob/+uw8BRSOzLdoMLL7dnOer/J6HnoQ=",
+    "overlay": [
+      {
+        "file": "third_party/mpitrampoline/mpitrampoline.BUILD",
+        "path": "BUILD.bazel",
+        "repo": "xla"
+      }
+    ],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "file": "third_party/mpitrampoline/gen.patch",
+        "repo": "xla"
+      }
+    ],
+    "stripPrefix": "MPItrampoline-25efb0f7a4cd00ed82bafb8b1a6285fc50d297ed",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/eschnett/mpitrampoline/archive/25efb0f7a4cd00ed82bafb8b1a6285fc50d297ed.tar.gz",
+      "https://github.com/eschnett/mpitrampoline/archive/25efb0f7a4cd00ed82bafb8b1a6285fc50d297ed.tar.gz"
+    ],
+    "version": "25efb0f7a4cd00ed82bafb8b1a6285fc50d297ed"
+  },
+  "riegeli": {
+    "hash": "sha256-9jM39j95S6ncfdKBsgrz0Dbf4MGlpLe43CCzn34yO5c=",
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "file": "third_party/riegeli/layering_check.patch",
+        "repo": "xla"
+      }
+    ],
+    "stripPrefix": "riegeli-9f2744dc23e81d84c02f6f51244e9e9bb9802d57",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/riegeli/archive/9f2744dc23e81d84c02f6f51244e9e9bb9802d57.tar.gz",
+      "https://github.com/google/riegeli/archive/9f2744dc23e81d84c02f6f51244e9e9bb9802d57.tar.gz"
+    ],
+    "version": "9f2744dc23e81d84c02f6f51244e9e9bb9802d57"
+  },
+  "shardy": {
+    "hash": "sha256-+KFFgayGvxcMGqaBTaoAARL5w6k6+md8KDFUM+eyoz8=",
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "file": "third_party/shardy/temporary.patch",
+        "repo": "xla"
+      }
+    ],
+    "stripPrefix": "shardy-38ab99f4d252c59d491899a694fe8cbadfeccec3",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/openxla/shardy/archive/38ab99f4d252c59d491899a694fe8cbadfeccec3.zip",
+      "https://github.com/openxla/shardy/archive/38ab99f4d252c59d491899a694fe8cbadfeccec3.zip"
+    ],
+    "version": "38ab99f4d252c59d491899a694fe8cbadfeccec3"
+  },
+  "slinky": {
+    "hash": "sha256-zKJTkIc60BpuRh7dOdIg+xbJEr66Lr4CrjuJfKY/MO8=",
+    "overlay": [],
+    "patchStrip": 0,
+    "patches": [],
+    "stripPrefix": "slinky-a3eec6fcfe3093be04d6c3d7dcab7d4e70bdd0dc",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/dsharlet/slinky/archive/a3eec6fcfe3093be04d6c3d7dcab7d4e70bdd0dc.zip",
+      "https://github.com/dsharlet/slinky/archive/a3eec6fcfe3093be04d6c3d7dcab7d4e70bdd0dc.zip"
+    ],
+    "version": "a3eec6fcfe3093be04d6c3d7dcab7d4e70bdd0dc"
+  },
+  "stablehlo": {
+    "hash": "sha256-Fq9sjwuqzaFd1y2Y3ClaITvkVbj6GJmvRuFE1trmcL0=",
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "file": "third_party/stablehlo/temporary.patch",
+        "repo": "xla"
+      }
+    ],
+    "stripPrefix": "stablehlo-b9029ac2228a12e176ea20e56f7d3dcb6bf8a019",
+    "urls": [
+      "https://storage.googleapis.com/mirror.tensorflow.org/github.com/openxla/stablehlo/archive/b9029ac2228a12e176ea20e56f7d3dcb6bf8a019.zip",
+      "https://github.com/openxla/stablehlo/archive/b9029ac2228a12e176ea20e56f7d3dcb6bf8a019.zip"
+    ],
+    "version": "b9029ac2228a12e176ea20e56f7d3dcb6bf8a019"
+  },
+  "xla": {
+    "hash": "sha256-UKZ/Qqn4U274TL4t5cmI87M9yYRIVzksbmFpCy5/34g=",
+    "overlay": [],
+    "patchStrip": 1,
+    "patches": [
+      {
+        "file": "third_party/xla/xpu_triton_hook.patch",
+        "repo": ""
+      },
+      {
+        "file": "third_party/xla/nvptx_compiler_target.patch",
+        "repo": ""
+      },
+      {
+        "file": "third_party/xla/windows_cpp_gen_intrinsics.patch",
+        "repo": ""
+      }
+    ],
+    "stripPrefix": "xla-d867969800d4a8fd045505eabc65e1e66f30794f",
+    "urls": [
+      "https://github.com/openxla/xla/archive/d867969800d4a8fd045505eabc65e1e66f30794f.tar.gz"
+    ],
+    "version": "d867969800d4a8fd045505eabc65e1e66f30794f"
+  }
+}

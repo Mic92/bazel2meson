@@ -1,17 +1,11 @@
 {
-  description = "Meson build for Envoy, generated from its Bazel build";
+  description = "Generate a Meson build from a project's Bazel build files";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-  inputs.envoy = {
-    url = "github:envoyproxy/envoy/v1.40.2";
-    flake = false;
-  };
-
   outputs =
     {
       self,
       nixpkgs,
-      envoy,
     }:
     let
       systems = [
@@ -21,17 +15,24 @@
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
     in
     {
-      packages = forAllSystems (pkgs: rec {
-        default = envoy-meson;
-        envoy-meson = pkgs.callPackage ./package.nix {
-          src = envoy;
-          version = nixpkgs.lib.trim (builtins.readFile "${envoy}/VERSION.txt");
-        };
-      });
+      packages = forAllSystems (
+        pkgs:
+        let
+          bazel2meson = pkgs.python3Packages.callPackage ./package.nix { };
+        in
+        {
+          inherit bazel2meson;
+          default = bazel2meson;
+          envoy = pkgs.callPackage ./examples/envoy/package.nix { inherit bazel2meson; };
+          jax-modules = pkgs.linkFarm "jax-modules" (
+            import ./examples/jax/modules.nix { inherit (pkgs) callPackage fetchFromGitHub; }
+          );
+        }
+      );
 
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
-          inputsFrom = [ self.packages.${pkgs.stdenv.hostPlatform.system}.envoy-meson ];
+          inputsFrom = [ self.packages.${pkgs.stdenv.hostPlatform.system}.envoy ];
           packages = [
             pkgs.ruff
             pkgs.ty
