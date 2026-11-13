@@ -97,6 +97,11 @@ stdenv.mkDerivation {
   ];
   dontUseCmakeConfigure = true;
 
+  # The libraries from nixpkgs are built by GCC. Clang 18 and later mangle
+  # some template arguments differently, so symbols such as
+  # absl::Cord::Append<std::string> would not be found in them.
+  env.NIX_CFLAGS_COMPILE = "-fclang-abi-compat=17";
+
   # While the port is in progress: show every failure of a run.
   ninjaFlags = [ "-k0" ];
 
