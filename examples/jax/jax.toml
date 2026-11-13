@@ -1,7 +1,8 @@
 # jaxlib's native extension modules, CPU only. Work in progress.
 
 name = "jaxlib"
-root = "//jaxlib:_jax"
+# The second root is a stand-in, see stubs/mlir_python/BUILD.bazel.
+roots = ["//jaxlib:_jax", "@mlir_python//:core"]
 
 plugins = ["tablegen", "cc_embed_data", "xla_llvm_ir", "python_extension"]
 
@@ -14,6 +15,9 @@ com_github_grpc_grpc = "grpc"
 
 [repos]
 tsl = "external/xla/third_party/tsl"
+# Stands in for the repository XLA's CUDA configuration rule generates.
+local_config_cuda = "external/local_config_cuda"
+mlir_python = "external/mlir_python"
 
 [config]
 values = { compilation_mode = "opt" }
@@ -24,7 +28,14 @@ values = { compilation_mode = "opt" }
 [system.llvm-project]
 dependencies = ["lib:LLVM", "cmake:MLIR:MLIR"]
 # The shared libraries leave TableGen out; only build tools use it.
-targets = { TableGen = ["lib:MLIRTableGen", "lib:LLVMTableGen"] }
+# The C API comes as static libraries.
+[system.llvm-project.targets]
+TableGen = ["lib:MLIRTableGen", "lib:LLVMTableGen"]
+CAPIIR = ["lib:MLIRCAPIIR"]
+CAPIAsync = ["lib:MLIRCAPIAsync"]
+CAPIDebug = ["lib:MLIRCAPIDebug"]
+CAPIInterfaces = ["lib:MLIRCAPIInterfaces"]
+CAPITransforms = ["lib:MLIRCAPITransforms"]
 
 [system.abseil-cpp]
 dependencies = ["absl_base", "absl_strings", "absl_status", "absl_statusor", "absl_flat_hash_map", "absl_synchronization", "absl_time"]

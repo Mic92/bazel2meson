@@ -30,4 +30,6 @@ def register(em: Emitter) -> None:
 
     em.cc_kinds.add("pybind_extension")
     em.module_kinds["pybind_extension"] = module
+    # The interpreter loading the modules provides the Python symbols.
+    em.default_options.append("b_lundef=false")
     em.common_library_args["install_dir"] = Expr("py.get_install_dir()") / package

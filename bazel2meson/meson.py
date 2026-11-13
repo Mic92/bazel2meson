@@ -168,6 +168,8 @@ class Emitter:
         self.module_kinds: dict[str, Callable[[Label, dict[str, Value]], Expr]] = {}
         # Extra arguments for that shared library, e.g. where to install it.
         self.common_library_args: dict[str, Value] = {}
+        # Further default_options of the Meson project.
+        self.default_options: list[str] = []
         # Executables built to run during the build: label -> Meson variable.
         self.tools: dict[Label, str] = {}
         self.tool_statements: list[str] = []
@@ -700,6 +702,7 @@ class Emitter:
                         "buildtype=plain",
                         "b_staticpic=true",
                         "default_library=static",
+                        *self.default_options,
                     ],
                 )
             ),

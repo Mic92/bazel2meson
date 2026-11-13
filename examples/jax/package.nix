@@ -99,6 +99,12 @@ stdenv.mkDerivation {
         chmod -R u+w external/${name}
       '') modules
     )}
+    # Hand-written stand-ins for repositories Bazel would generate, and the
+    # sources of MLIR's Python bindings for one of them.
+    cp -r ${./stubs}/* external/
+    chmod -R u+w external
+    cp -r ${llvmPackages.mlir.src}/mlir/lib/Bindings/Python external/mlir_python/
+
     bazel2meson \
       --config ${./jax.toml} \
       --source . \
@@ -144,7 +150,10 @@ stdenv.mkDerivation {
     hwloc
     jsoncpp
     libhwy
-    oneDNN
+    # XLA drives oneDNN with its own thread pool.
+    (oneDNN.overrideAttrs (old: {
+      cmakeFlags = (old.cmakeFlags or [ ]) ++ [ (lib.cmakeFeature "DNNL_CPU_RUNTIME" "THREADPOOL") ];
+    }))
     re2
     robin-map
     snappy
