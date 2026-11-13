@@ -673,6 +673,10 @@ def c_args(copts: list[str]) -> list[str]:
 def write(files: dict[str, str], dest: Path) -> None:
     for rel, content in files.items():
         path = dest / rel
+        # Rewriting an unchanged header would make ninja rebuild everything
+        # that includes it.
+        if path.is_file() and path.read_text() == content:
+            continue
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
 
