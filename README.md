@@ -21,7 +21,8 @@ upstream release means bumping the pin and re-running the generator.
   dependency is an installed library. `nix build .#bant`
 - [Envoy](examples/envoy): builds and serves requests. Two extensions
   are left out so far, see `envoy.toml`.
-- [jaxlib](examples/jax): most of the tree compiles, not linked yet.
+- [jaxlib](examples/jax): the CPU package builds with all 30 extension
+  modules, and JAX computes on it. GPU parts (CUDA, ROCm, Triton) are left out.
 
 ## Configuration
 

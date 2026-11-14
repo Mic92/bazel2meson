@@ -1,5 +1,5 @@
 # jaxlib built by Meson from a build description generated out of JAX's and
-# XLA's Bazel files. Work in progress: CPU only, and only the _jax module.
+# XLA's Bazel files. CPU only.
 {
   lib,
   llvmPackages_git,
@@ -64,9 +64,24 @@ let
           tblgen = prev.tblgen.overrideAttrs (old: {
             patches = withoutTestPatch old;
           });
-          mlir = prev.mlir.override { buildLlvmPackages = final; };
+          # MLIR tells traits and interfaces apart by type names the compiler
+          # writes out, and GCC and Clang spell those differently. With MLIR
+          # from GCC, its passes fail to recognise the traits of XLA's
+          # operations and produce invalid code.
+          mlir =
+            (prev.mlir.override {
+              buildLlvmPackages = final;
+              inherit (llvmPackages_latest) stdenv;
+            }).overrideAttrs
+              (old: {
+                env = (old.env or { }) // {
+                  NIX_CFLAGS_COMPILE = "-fclang-abi-compat=17";
+                };
+              });
         }
       );
+
+  llvmSrc = llvmPackages.libllvm.monorepoSrc;
 
   src = fetchFromGitHub {
     owner = "jax-ml";
@@ -99,11 +114,17 @@ stdenv.mkDerivation {
         chmod -R u+w external/${name}
       '') modules
     )}
-    # Hand-written stand-ins for repositories Bazel would generate, and the
-    # sources of MLIR's Python bindings for one of them.
+    # MLIR's Python bindings, which an installed MLIR lacks, and the Bazel
+    # files describing them.
+    mkdir -p external/llvm-project/mlir/lib/Bindings
+    cp -r ${llvmSrc}/mlir/{python,include} external/llvm-project/mlir/
+    cp -r ${llvmSrc}/mlir/lib/Bindings/Python external/llvm-project/mlir/lib/Bindings/
+    chmod -R u+w external/llvm-project
+    cp ${llvmSrc}/utils/bazel/llvm-project-overlay/mlir/BUILD.bazel external/llvm-project/mlir/
+    cp ${llvmSrc}/utils/bazel/llvm-project-overlay/mlir/python/BUILD.bazel external/llvm-project/mlir/python/
+    # Hand-written stand-ins for what Bazel's repository rules would generate.
     cp -r ${./stubs}/* external/
     chmod -R u+w external
-    cp -r ${llvmPackages.mlir.src}/mlir/lib/Bindings/Python external/mlir_python/
 
     bazel2meson \
       --config ${./jax.toml} \
@@ -161,6 +182,29 @@ stdenv.mkDerivation {
     zlib
     zstd
   ];
+
+  # Steps of JAX's build_wheel.py, which the Bazel files do not describe.
+  postInstall = ''
+    pushd $out/${python3.sitePackages}/jaxlib
+    mv init.py __init__.py
+    rm -f __pycache__/init.*
+    touch py.typed
+    popd
+  '';
+
+  # Symbols missing from the common library only show when it is loaded.
+  # JAX's Python sources are in the same repository.
+  doInstallCheck = true;
+  installCheckPhase = ''
+    PYTHONPATH=$out/${python3.sitePackages}:$NIX_BUILD_TOP/$sourceRoot ${
+      python3.withPackages (ps: [
+        ps.numpy
+        ps.scipy
+        ps.ml-dtypes
+        ps.opt-einsum
+      ])
+    }/bin/python3 ${./smoke-test.py}
+  '';
 
   # numpy keeps its pkg-config file inside the Python package.
   env.PKG_CONFIG_PATH = "${python3.pkgs.numpy}/${python3.sitePackages}/numpy/_core/lib/pkgconfig";

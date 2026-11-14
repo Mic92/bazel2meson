@@ -1,10 +1,13 @@
 # jaxlib's native extension modules, CPU only. Work in progress.
 
 name = "jaxlib"
-# The second root is a stand-in, see stubs/mlir_python/BUILD.bazel.
-roots = ["//jaxlib:_jax", "@mlir_python//:core"]
+root = "//jaxlib:jaxlib"
 
-plugins = ["tablegen", "cc_embed_data", "xla_llvm_ir", "python_extension"]
+# GPU only.
+ignore = ["triton"]
+exclude = ["//jaxlib/mlir/_mlir_libs:_triton_ext", "//jaxlib/triton:triton"]
+
+plugins = ["tablegen", "cc_embed_data", "xla_llvm_ir", "python_extension", "python_library", "symlink_files"]
 
 # Names XLA's extensions give repositories that are also modules.
 [repo_aliases]
@@ -17,25 +20,51 @@ com_github_grpc_grpc = "grpc"
 tsl = "external/xla/third_party/tsl"
 # Stands in for the repository XLA's CUDA configuration rule generates.
 local_config_cuda = "external/local_config_cuda"
-mlir_python = "external/mlir_python"
+# LLVM's Bazel files and MLIR's sources, for the parts listed below.
+llvm-project = "external/llvm-project"
 
+# From JAX's .bazelrc.
 [config]
 values = { compilation_mode = "opt" }
+defines = { tsl_link_protobuf = "true", grpc_no_ares = "true" }
+# Where MLIR's modules import each other from, and a nanobind state apart
+# from that of other packages.
+copts = ["-DMLIR_PYTHON_PACKAGE_PREFIX=jaxlib.mlir.", "-DNB_DOMAIN=jax"]
 
 # Installed libraries. XLA pins LLVM to a development commit; nixpkgs'
 # llvmPackages_git is close to it. libLLVM is looked up as a plain library:
 # Meson has a handler of its own for the name LLVM that wants component names.
 [system.llvm-project]
 dependencies = ["lib:LLVM", "cmake:MLIR:MLIR"]
+# MLIR's Python bindings are no part of an installed MLIR.
+source = [
+  "mlir/python",
+  "mlir:MLIRBindingsPythonCore",
+  "mlir:MLIRBindingsPythonSourceFiles",
+  "mlir:MLIRBindingsPythonCoreHeaders",
+]
 # The shared libraries leave TableGen out; only build tools use it.
 # The C API comes as static libraries.
 [system.llvm-project.targets]
 TableGen = ["lib:MLIRTableGen", "lib:LLVMTableGen"]
-CAPIIR = ["lib:MLIRCAPIIR"]
+# Bazel's CAPIIR holds what CMake splits into three libraries.
+CAPIIR = ["lib:MLIRCAPIIR", "lib:MLIRCAPIFunc", "lib:MLIRCAPIIRDL"]
 CAPIAsync = ["lib:MLIRCAPIAsync"]
 CAPIDebug = ["lib:MLIRCAPIDebug"]
 CAPIInterfaces = ["lib:MLIRCAPIInterfaces"]
 CAPITransforms = ["lib:MLIRCAPITransforms"]
+CAPIArith = ["lib:MLIRCAPIArith"]
+CAPICF = ["lib:MLIRCAPIControlFlow"]
+CAPIGPU = ["lib:MLIRCAPIGPU"]
+CAPILLVM = ["lib:MLIRCAPILLVM"]
+CAPIMath = ["lib:MLIRCAPIMath"]
+CAPIMemRef = ["lib:MLIRCAPIMemRef"]
+CAPINVGPU = ["lib:MLIRCAPINVGPU"]
+CAPINVVM = ["lib:MLIRCAPINVVM"]
+CAPISCF = ["lib:MLIRCAPISCF"]
+CAPISparseTensor = ["lib:MLIRCAPISparseTensor"]
+CAPITarget = ["lib:MLIRCAPITarget"]
+CAPIVector = ["lib:MLIRCAPIVector"]
 
 [system.abseil-cpp]
 dependencies = ["absl_base", "absl_strings", "absl_status", "absl_statusor", "absl_flat_hash_map", "absl_synchronization", "absl_time"]

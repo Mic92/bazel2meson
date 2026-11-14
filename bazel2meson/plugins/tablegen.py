@@ -1,4 +1,4 @@
-"""LLVM TableGen rules: gentbl_cc_library and td_library.
+"""LLVM TableGen rules: gentbl_cc_library, gentbl_filegroup and td_library.
 
 The TableGen tools and LLVM's own .td files come from the installed LLVM;
 targets of the LLVM repository are expected to be mapped to system libraries.
@@ -39,7 +39,8 @@ def tbl_outs(em: Emitter, target: Target) -> list[tuple[str, list[str]]]:
     return list(outs.items()) if isinstance(outs, dict) else [(out, opts) for opts, out in outs]
 
 
-def gentbl_cc_library(em: Emitter, label: Label, target: Target) -> None:
+def gentbl(em: Emitter, headers: bool, label: Label, target: Target) -> None:
+    """headers: the outputs are included by C++ sources, which then wait for them."""
     em.templates.setdefault("tablegen", template("tablegen.meson"))
     package = PurePosixPath(em.directory(label))
     pairs = tbl_outs(em, target)
@@ -51,14 +52,15 @@ def gentbl_cc_library(em: Emitter, label: Label, target: Target) -> None:
     (td_file,) = em.rs.labels(target, "td_file")
     td_path = em.path(td_file)
     if td_path is None:
-        em.problems["gentbl_cc_library: td_file is not a file"].add(str(label))
+        em.problems["gentbl: td_file is not a file"].add(str(label))
         return
     dirs = [em.settings.repo_dirs[label.repo], str(package), str(PurePosixPath(td_path).parent)]
     dirs += [include_dir(em, label, inc) for inc in em.rs.attr(target, "includes")]
     for dep in em.rs.labels(target, "deps"):
         dirs += td_includes(em, dep, set())
     includes: list[Value] = ["-I" + SOURCE_ROOT / d for d in dict.fromkeys(dirs)]
-    em.include_dirs.add(str(package / em.rs.attr(target, "strip_include_prefix", "")))
+    if headers:
+        em.include_dirs.add(str(package / em.rs.attr(target, "strip_include_prefix", "")))
     for out, opts in pairs:
         path = package / out
         name = "tblgen_" + sanitize(str(path))
@@ -83,13 +85,17 @@ def gentbl_cc_library(em: Emitter, label: Label, target: Target) -> None:
                     ],
                 ),
             ),
-            extend("generated_headers", var(name)),
+            *([extend("generated_headers", var(name))] if headers else []),
             "",
         ]
+        em.generated_files[Label(label.repo, label.pkg, out)] = var(name)
 
 
 def register(em: Emitter) -> None:
-    em.handlers["gentbl_cc_library"] = partial(gentbl_cc_library, em)
-    em.outputs["gentbl_cc_library"] = lambda target: [out for out, _ in tbl_outs(em, target)]
+    em.handlers["gentbl_cc_library"] = partial(gentbl, em, True)
+    # Files of other kinds, e.g. Python bindings of a dialect.
+    em.handlers["gentbl_filegroup"] = partial(gentbl, em, False)
+    for kind in ("gentbl_cc_library", "gentbl_filegroup"):
+        em.outputs[kind] = lambda target: [out for out, _ in tbl_outs(em, target)]
     # Only its include directories matter, which gentbl_cc_library collects.
     em.passive_kinds.add("td_library")

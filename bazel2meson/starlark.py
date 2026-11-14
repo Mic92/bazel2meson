@@ -556,9 +556,11 @@ class Workspace:
 class Recorder:
     """A rule: calling it declares a target in the package being evaluated."""
 
-    def __init__(self, ws: Workspace, kind: str) -> None:
+    def __init__(self, ws: Workspace, kind: str, guessed: bool = False) -> None:
         self._ws = ws
         self._kind = kind
+        # From a .bzl file we cannot read; may be a macro that returns something.
+        self._guessed = guessed
         self.__name__ = kind
 
     def __call__(self, *args: Any, **attrs: Any) -> Any:
@@ -575,7 +577,7 @@ class Recorder:
             return Stub(self._kind)
         repo, pkg = ws._ctx[-1]
         ws.targets[Label(repo, pkg, name)] = Target(Label(repo, pkg, name), self._kind, attrs)
-        return None
+        return Stub(self._kind) if self._guessed else None
 
     def __getattr__(self, item: str) -> Stub:
         if item.startswith("__"):
@@ -657,6 +659,6 @@ class AutoStubModule(dict):
 
     def __missing__(self, key: str) -> Any:
         self._ws.unknown_rules[key] = self._ws.unknown_rules.get(key, 0) + 1
-        value = self._ws.recorder(key)
+        value = Recorder(self._ws, key, guessed=True)
         self[key] = value
         return value

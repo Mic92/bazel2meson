@@ -59,6 +59,7 @@ def main() -> int:
         ],
         forward_headers=raw.get("forward_headers", {}),
         pch={name: PchSpec(**spec) for name, spec in raw.get("pch", {}).items()},
+        copts=cfg.get("copts", []),
         revision=args.revision,
         project_name=raw.get("name", args.config.stem),
         version=args.version,

@@ -108,6 +108,12 @@ class SystemRepo:
     optional: bool = False
     # Preprocessor defines the Bazel build of the library exports to its users.
     defines: list[str] = field(default_factory=list)
+    # Packages ("pkg") and targets ("pkg:name") built from the repository's
+    # sources all the same: parts the installed library leaves out.
+    source: list[str] = field(default_factory=list)
+
+    def from_source(self, label: Label) -> bool:
+        return label.pkg in self.source or f"{label.pkg}:{label.name}" in self.source
 
     def lookup(self, label: Label) -> list[str]:
         for key in (f"{label.pkg}:{label.name}", label.name):
@@ -137,6 +143,8 @@ class Settings:
     forward_headers: dict[str, str] = field(default_factory=dict)
     # Library (repository name) -> how to choose its precompiled header.
     pch: dict[str, PchSpec] = field(default_factory=dict)
+    # Compiler options for everything, as Bazel's --copt gives.
+    copts: list[str] = field(default_factory=list)
     # Source revision reported by the binary.
     revision: str = "0" * 40
     project_name: str = "project"
@@ -173,6 +181,9 @@ class Emitter:
         # shared library next to it, as modules of one project share state.
         # The value renders the module from its name and arguments.
         self.module_kinds: dict[str, Callable[[Label, dict[str, Value]], Expr]] = {}
+        # Rule kind -> (compiler option for the module's sources, source of
+        # the entry point left in the module), for modules made of real code.
+        self.module_wrappers: dict[str, Callable[[Label], tuple[str, str]]] = {}
         # Extra arguments for that shared library, e.g. where to install it.
         self.common_library_args: dict[str, Value] = {}
         # Further default_options of the Meson project.
@@ -189,7 +200,20 @@ class Emitter:
         self.generated_sources: dict[str, list[Expr]] = defaultdict(list)
         # C/C++ sources written by genrules, compiled only where srcs names them.
         self.genrule_sources: dict[Label, Expr] = {}
-        self.emitted_genrules: set[Label] = set()
+        # Rule kind -> the files of a target and where each goes when installed,
+        # relative to the installation directory.
+        self.file_placers: dict[str, Callable[[Label, Target], list[tuple[Label, str]]]] = {}
+        # Rule kind -> further attributes naming targets that belong to the build.
+        self.extra_edges: dict[str, tuple[str, ...]] = {}
+        # Sub-directories whose statements use targets of any other.
+        self.late_subdirs: dict[str, list[str]] = defaultdict(list)
+        # Statements for the end of the top-level file.
+        self.install_statements: list[str] = []
+        # Called once all targets are translated.
+        self.finalizers: list[Callable[[], None]] = []
+        # Files rules write into the build tree -> the Meson object for each.
+        self.generated_files: dict[Label, Expr] = {}
+        self.emitted: set[Label] = set()
         self._by_package: dict[tuple[str, str], list[tuple[Label, Target]]] = defaultdict(list)
         self._indexed = -1
         self._paths: dict[Label, str] = {}
@@ -220,6 +244,16 @@ class Emitter:
 
     # -- traversal ----------------------------------------------------------
 
+    def system(self, label: Label) -> SystemRepo | None:
+        """The installed library standing in for a label, if one does."""
+        system = self.settings.system.get(label.repo)
+        if system is None or system.from_source(label):
+            return None
+        # Files of the repository named by targets built from source.
+        if system.source and self.path(label) is not None:
+            return None
+        return system
+
     def collect(self) -> None:
         self.targets: dict[Label, Target] = {}
         self.files: set[Label] = set()
@@ -234,7 +268,7 @@ class Emitter:
                 continue
             if label.repo in self.settings.ignore or str(label) in self.settings.exclude:
                 continue
-            system = self.settings.system.get(label.repo)
+            system = self.system(label)
             if system is not None:
                 self.system_deps.update(system.lookup(label))
                 self.system_defines.update(system.defines)
@@ -254,7 +288,7 @@ class Emitter:
                 self.files.add(label)
                 continue
             self.targets[label] = target
-            for edge in EDGES:
+            for edge in (*EDGES, *self.extra_edges.get(target.kind, ())):
                 stack.extend(self.rs.labels(target, edge))
             if target.kind == "label_flag":
                 # Stands for the target it is set to.
@@ -466,9 +500,6 @@ class Emitter:
     # -- genrule ------------------------------------------------------------
 
     def emit_genrule(self, label: Label, target: Target) -> None:
-        if label in self.emitted_genrules:
-            return
-        self.emitted_genrules.add(label)
         srcs = self.rs.labels(target, "srcs")
         tools = self.rs.labels(target, "tools")
         outs = list(self.rs.attr(target, "outs"))
@@ -491,12 +522,10 @@ class Emitter:
             """Shell word for a file some genrule writes into the build tree."""
             if item.pkg == label.pkg and item.repo == label.repo and item.name in outs:
                 return f"{out_dir}/{shlex.quote(PurePosixPath(item.name).name)}"
-            producer = self.generated(item)
-            if producer is None or self.targets[producer].kind != "genrule":
+            file = self.generated_file(item)
+            if file is None:
                 return None
-            # Meson wants a target defined before it is referred to.
-            self.emit_genrule(producer, self.targets[producer])
-            depends.append(var(self.genrule_name(producer)))
+            depends.append(file)
             return self.build_path(f"{self.directory(item)}/{item.name}")
 
         def word(item: Label) -> str | None:
@@ -555,12 +584,51 @@ class Emitter:
         self.subdirs[directory] += [
             assign(name, call("custom_target", output=names, depend_files=[SOURCE_ROOT / p for p in inputs], **args)),
         ]
+        for i, o in enumerate(outs):
+            self.generated_files[Label(label.repo, label.pkg, o)] = var(name)[i]
         compilable = {i for i, o in enumerate(outs) if PurePosixPath(o).suffix in SOURCE_SUFFIXES}
         for i in compilable:
             self.genrule_sources[Label(label.repo, label.pkg, outs[i])] = var(name)[i]
         # Meson would compile sources among the outputs wherever they are listed.
         headers = [var(name)[i] for i in range(len(outs)) if i not in compilable] if compilable else var(name)
         self.subdirs[directory] += [extend("generated_headers", headers), ""]
+
+    def is_module(self, target: Target) -> bool:
+        """Whether a target becomes a loadable module."""
+        if target.kind not in self.module_kinds:
+            return False
+        # Of the binaries only the shared objects.
+        return target.kind != "cc_binary" or bool(self.rs.attr(target, "linkshared", False))
+
+    def expand(self, labels: list[Label]) -> list[Label]:
+        """Labels with each filegroup replaced by what it names."""
+        found: list[Label] = []
+        for label in labels:
+            target = self.targets.get(label)
+            if target is not None and target.kind == "filegroup":
+                found += self.expand(self.rs.labels(target, "srcs"))
+            else:
+                found.append(label)
+        return found
+
+    def emit_rule(self, label: Label) -> bool:
+        """Translate a target with a handler, once. Whether there is one."""
+        target = self.targets.get(label)
+        if target is None or target.kind not in self.handlers:
+            return False
+        if label not in self.emitted:
+            self.emitted.add(label)
+            self.handlers[target.kind](label, target)
+        return True
+
+    def generated_file(self, label: Label) -> Expr | None:
+        """The Meson object for a file a rule generates."""
+        if label not in self.generated_files:
+            producer = self.generated(label)
+            # Meson wants a target defined before it is referred to.
+            if producer is None or not self.emit_rule(producer):
+                return None
+        return self.generated_files.get(label)
 
     def genrule_name(self, label: Label) -> str:
         return "gen_" + sanitize(f"{self.directory(label)}/{label.name}")
@@ -594,11 +662,7 @@ class Emitter:
         # Compiled together: a repository, or a root that is a module.
         sources: dict[str | Label, list[str]] = defaultdict(list)
         copts: dict[str | Label, list[str]] = defaultdict(list)
-        modules = [
-            root
-            for root in self.settings.roots
-            if root in self.targets and self.targets[root].kind in self.module_kinds
-        ]
+        modules = sorted(label for label, target in self.targets.items() if self.is_module(target))
         defines: list[str] = []
         include_dirs = self.include_dirs
         include_dirs.update(self.proto_roots)
@@ -622,8 +686,7 @@ class Emitter:
         own_dirs = {label: self.include_dirs_of(label, target) for label, target in self.targets.items()}
         contested = self.contested_dirs(set().union(*own_dirs.values()))
         for label, target in sorted(self.targets.items()):
-            if target.kind in self.handlers:
-                self.handlers[target.kind](label, target)
+            if self.emit_rule(label):
                 continue
             if target.kind not in self.cc_kinds:
                 if target.kind not in self.passive_kinds and not any(
@@ -631,7 +694,7 @@ class Emitter:
                 ):
                     self.problems[f"unhandled rule kind {target.kind}"].add(str(label))
                 continue
-            if target.kind == "cc_binary" and label not in self.settings.roots:
+            if target.kind == "cc_binary" and label not in self.settings.roots and label not in modules:
                 # A tool the build runs, see tool(); not part of the result.
                 continue
             repo_dir = self.settings.repo_dirs[label.repo]
@@ -644,6 +707,17 @@ class Emitter:
             flags += [f"-D{d}" for d in self.rs.attr(target, "local_defines")]
             # Its other options stay with it too, as they tend to go together.
             machine = tuple(flags) if isinstance(unit, str) and any(f.startswith("-m") for f in flags) else ()
+            wrap = self.module_wrappers.get(target.kind) if label in modules else None
+            if wrap is not None:
+                # The module's code joins the shared library, where the state
+                # it has in common with other modules exists once. What is
+                # left of the module is an entry point.
+                option, stub = wrap(label)
+                path = f"{SCRIPTS}/{sanitize(str(label))}_entry.c"
+                virtual[path] = stub
+                sources[label].append(path)
+                unit = label.repo
+                machine = (*(f for f in flags if not f.startswith("-fvisibility")), option)
             # Contested directories of the target and its dependencies go first.
             near = own_dirs[label].union(*(own_dirs.get(dep, set()) for dep in self.rs.labels(target, "deps")))
             first = tuple(sorted(near & contested)) if isinstance(unit, str) else ()
@@ -656,7 +730,7 @@ class Emitter:
             else:
                 add_unique(copts[unit], flags)
                 add_unique(defines, exported)
-            for src in self.rs.labels(target, "srcs"):
+            for src in self.expand(self.rs.labels(target, "srcs")):
                 if PurePosixPath(src.name).suffix not in SOURCE_SUFFIXES:
                     continue
                 path = self.path(src)
@@ -675,7 +749,9 @@ class Emitter:
                     f"#include {c_string(path or '')}\n"
                 )
                 sources[unit].append(wrapper)
-            for opt in self.rs.attr(target, "linkopts"):
+            # A module's own options are about which symbols it exports, which
+            # Meson takes care of.
+            for opt in self.rs.attr(target, "linkopts") if label not in modules else []:
                 expr = self.linkopt(label, str(opt))
                 if expr is not None and render(expr) not in map(render, linkopts):
                     linkopts.append(expr)
@@ -693,6 +769,8 @@ class Emitter:
                     visible = PurePosixPath(prefix) / PurePosixPath(path).relative_to(stripped)
                     virtual[f"{VIRTUAL_INCLUDES}/{visible}"] = f"#include {c_string(path)}\n"
 
+        for finish in self.finalizers:
+            finish()
         for repo, machine, first, src in generated_srcs:
             if src in self.genrule_sources:
                 dest = variant_generated[repo, machine, first] if machine or first else self.generated_sources[repo]
@@ -700,7 +778,7 @@ class Emitter:
         if not any(path.startswith(VIRTUAL_INCLUDES + "/") for path in virtual):
             include_dirs.discard(VIRTUAL_INCLUDES)
         out: dict[str, str] = dict(virtual)
-        for directory, lines in sorted(self.subdirs.items()):
+        for directory, lines in sorted({**self.subdirs, **self.late_subdirs}.items()):
             out[f"{directory}/meson.build"] = "\n".join(lines)
 
         project = self.settings.project_name
@@ -740,13 +818,14 @@ class Emitter:
                     "add_project_arguments",
                     [
                         *MODE_FLAGS.get(self.rs.config.values.get("compilation_mode", ""), []),
+                        *self.settings.copts,
                         *("-D" + d for d in [*defines, *sorted(self.system_defines)]),
                     ],
                     language=["c", "cpp"],
                 )
             ),
             *self.tool_statements,
-            *(statement(call("subdir", d)) for d in sorted(self.subdirs)),
+            *(statement(call("subdir", d)) for d in [*sorted(self.subdirs), *sorted(self.late_subdirs)]),
             "",
             assign("protos_name", f"{sanitize(project)}_protos"),
             template("libraries.meson"),
@@ -849,7 +928,7 @@ class Emitter:
                 out[f"{BIN}/meson.build"] = statement(call("executable", program, kwargs=var("executable_args")))
             else:
                 root.append(statement(call("executable", program, **args)))
-        root.append("")
+        root += [*self.install_statements, ""]
         out["meson.build"] = "\n".join(root)
         return out
 
