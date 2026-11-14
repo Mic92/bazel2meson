@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import functools
 import glob as _glob
 import json as _json
 import re
@@ -169,6 +170,9 @@ _KEYWORD_IDENT = re.compile(
 )
 
 
+_DICT_VIEW = re.compile(r"\.(keys|values|items)\(\)")
+
+
 class _DictViews(ast.NodeTransformer):
     """Starlark's dict.keys()/values()/items() return lists, not views."""
 
@@ -176,7 +180,8 @@ class _DictViews(ast.NodeTransformer):
         self.generic_visit(node)
         func = node.func
         if isinstance(func, ast.Attribute) and func.attr in ("keys", "values", "items") and not node.args:
-            return ast.Call(func=ast.Name(id="list", ctx=ast.Load()), args=[node], keywords=[])
+            name = ast.copy_location(ast.Name(id="list", ctx=ast.Load()), node)
+            return ast.copy_location(ast.Call(func=name, args=[node], keywords=[]), node)
         return node
 
 
@@ -335,6 +340,10 @@ class Workspace:
             cur_repo, cur_pkg = ws._ctx[-1]
             return Select([SelectBranch(conditions, no_match_error, cur_repo, cur_pkg)])
 
+        @functools.cache
+        def is_package(directory: Path) -> bool:
+            return (directory / "BUILD").is_file() or (directory / "BUILD.bazel").is_file()
+
         def glob(include: list[str] = (), exclude: list[str] = (), allow_empty: bool = True, **_: Any) -> list[str]:
             cur_repo, cur_pkg = ws._ctx[-1]
             base = ws.package_dir(cur_repo, cur_pkg)
@@ -352,13 +361,9 @@ class Workspace:
                 if path.is_dir():
                     continue
                 parent = path.parent
-                crossed = False
-                while parent != base:
-                    if (parent / "BUILD").is_file() or (parent / "BUILD.bazel").is_file():
-                        crossed = True
-                        break
+                while parent != base and not is_package(parent):
                     parent = parent.parent
-                if not crossed:
+                if parent == base:
                     result.append(item)
             return result
 
@@ -479,8 +484,9 @@ class Workspace:
         source = path.read_text()
         source = _KEYWORD_IDENT.sub(lambda m: m.group(1) + "_", source)
         try:
-            tree = _DictViews().visit(ast.parse(source, str(path)))
-            code = compile(ast.fix_missing_locations(tree), str(path), "exec")
+            # Walking the tree costs more than compiling; few files need it.
+            tree = _DictViews().visit(ast.parse(source, str(path))) if _DICT_VIEW.search(source) else source
+            code = compile(tree, str(path), "exec")
         except SyntaxError as err:
             raise StarlarkError(f"{path}: {err}") from err
         exec(code, env)  # noqa: S102

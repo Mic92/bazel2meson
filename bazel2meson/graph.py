@@ -39,6 +39,7 @@ class Resolver:
         self.config = config
         self._cache: dict[Label, bool] = {}
         self.unknown_conditions: set[str] = set()
+        self._attrs: dict[tuple[Label, str], Any] = {}
         self.unknown_values: set[str] = set()
 
     # -- conditions ---------------------------------------------------------
@@ -139,9 +140,15 @@ class Resolver:
         return [] if result is None else result
 
     def attr(self, target: Target, name: str, default: Any = None) -> Any:
-        value = target.attrs.get(name)
-        if value is not None:
-            value = self.value(value)
+        """The value of an attribute with select() resolved. Callers must not modify it."""
+        key = (target.label, name)
+        if key in self._attrs:
+            value = self._attrs[key]
+        else:
+            value = target.attrs.get(name)
+            if value is not None:
+                value = self.value(value)
+            self._attrs[key] = value
         if isinstance(value, (Stub, Recorder)):
             # A constant loaded from a .bzl file of a repository we have no sources for.
             self.unknown_values.add(f"{target.label} {name}")

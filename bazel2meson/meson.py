@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import re
 import shlex
 from collections import defaultdict
@@ -67,6 +68,12 @@ EDGES = (
     "tools",
     "linkstamp",
 )
+
+
+@functools.cache
+def split_words(text: str) -> tuple[str, ...]:
+    """shlex.split, which is slow, for the few distinct strings options come in."""
+    return tuple(shlex.split(text))
 
 
 @dataclass
@@ -183,6 +190,9 @@ class Emitter:
         # C/C++ sources written by genrules, compiled only where srcs names them.
         self.genrule_sources: dict[Label, Expr] = {}
         self.emitted_genrules: set[Label] = set()
+        self._by_package: dict[tuple[str, str], list[tuple[Label, Target]]] = defaultdict(list)
+        self._indexed = -1
+        self._paths: dict[Label, str] = {}
 
     # -- paths --------------------------------------------------------------
 
@@ -191,6 +201,8 @@ class Emitter:
 
     def path(self, label: Label) -> str | None:
         """Project-relative path of a source file label."""
+        if label in self._paths:
+            return self._paths[label]
         base = self.repo_dir(label.repo)
         root = self.ws.repo_root(label.repo)
         if base is None or root is None:
@@ -200,6 +212,7 @@ class Emitter:
         # Files written when generating count as sources too.
         if not (root / rel).is_file() and path not in self.extra_files:
             return None
+        self._paths[label] = path
         return path
 
     def directory(self, label: Label) -> str:
@@ -257,7 +270,8 @@ class Emitter:
         directory = PurePosixPath(self.directory(label))
         for inc in self.rs.attr(target, "includes", []):
             # Bazel accepts directories that do not exist, Meson does not.
-            if (root / label.pkg / inc).is_dir():
+            # An absolute one would make pathlib leave the source tree.
+            if not inc.startswith("/") and (root / label.pkg / inc).is_dir():
                 found.add(str(directory / inc))
         strip = self.rs.attr(target, "strip_include_prefix", "")
         if strip and not self.rs.attr(target, "include_prefix", ""):
@@ -298,20 +312,26 @@ class Emitter:
 
     def generated(self, label: Label) -> Label | None:
         """The rule in the package that declares the file as output."""
-        for other, target in self.ws.targets.items():
+        for other, target in self.package_targets(label):
             outputs = self.outputs.get(target.kind)
-            if outputs and (other.repo, other.pkg) == (label.repo, label.pkg) and label.name in outputs(target):
+            if outputs and label.name in outputs(target):
                 return other
         return None
+
+    def package_targets(self, label: Label) -> list[tuple[Label, Target]]:
+        """The targets loaded so far of the package a label is in."""
+        if self._indexed != len(self.ws.targets):
+            self._by_package.clear()
+            for other, target in self.ws.targets.items():
+                self._by_package[other.repo, other.pkg].append((other, target))
+            self._indexed = len(self.ws.targets)
+        return self._by_package.get((label.repo, label.pkg), [])
 
     def copied(self, label: Label) -> bool:
         """Whether the file is written when generating: the output of a
         copy_file or expand_template rule in the package."""
-        for other, target in self.ws.targets.items():
-            if (other.repo, other.pkg) != (label.repo, label.pkg) or target.kind not in (
-                "copy_file",
-                "expand_template",
-            ):
+        for _, target in self.package_targets(label):
+            if target.kind not in ("copy_file", "expand_template"):
                 continue
             if self.rs.attr(target, "out", "") != label.name:
                 continue
@@ -618,7 +638,7 @@ class Emitter:
             include_dirs.add(repo_dir)
             unit: str | Label = label if label in modules else label.repo
             # Bazel splits each copt like a shell would.
-            flags = [t for c in self.rs.attr(target, "copts") for t in shlex.split(str(c))]
+            flags = [t for c in self.rs.attr(target, "copts") for t in split_words(str(c))]
             # Options selecting an instruction set must stay with the target
             # naming them: its sources only run after a CPU check.
             flags += [f"-D{d}" for d in self.rs.attr(target, "local_defines")]

@@ -14,13 +14,19 @@ from ..starlark import Label, Target
 from ..syntax import SOURCE_ROOT, Value, assign, call, extend, sanitize, var
 
 
+def include_dir(em: Emitter, label: Label, inc: str) -> str:
+    """LLVM's rules take a leading slash as relative to the repository."""
+    base = em.settings.repo_dirs[label.repo] if inc.startswith("/") else em.directory(label)
+    return str(PurePosixPath(base) / inc.lstrip("/"))
+
+
 def td_includes(em: Emitter, label: Label, seen: set[Label]) -> list[str]:
     """Include directories of a td_library and the ones it depends on."""
     target = em.targets.get(label)
     if target is None or label in seen:
         return []
     seen.add(label)
-    dirs = [str(PurePosixPath(em.directory(label)) / inc) for inc in em.rs.attr(target, "includes")]
+    dirs = [include_dir(em, label, inc) for inc in em.rs.attr(target, "includes")]
     for dep in em.rs.labels(target, "deps"):
         dirs += td_includes(em, dep, seen)
     return dirs
@@ -48,7 +54,7 @@ def gentbl_cc_library(em: Emitter, label: Label, target: Target) -> None:
         em.problems["gentbl_cc_library: td_file is not a file"].add(str(label))
         return
     dirs = [em.settings.repo_dirs[label.repo], str(package), str(PurePosixPath(td_path).parent)]
-    dirs += [str(package / inc) for inc in em.rs.attr(target, "includes")]
+    dirs += [include_dir(em, label, inc) for inc in em.rs.attr(target, "includes")]
     for dep in em.rs.labels(target, "deps"):
         dirs += td_includes(em, dep, set())
     includes: list[Value] = ["-I" + SOURCE_ROOT / d for d in dict.fromkeys(dirs)]
